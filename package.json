@@ -1,0 +1,43 @@
+{
+	"name": "ProtoCal",
+	"private": true,
+	"type": "module",
+	"main": "index.js",
+	"scripts": {
+		"dev": "node ./vite.server.ts",
+		"pub": "node ./vite.server.ts --entry publish",
+		"pubglobal": "node ./vite.server.ts --entry publish --global"
+	},
+	"dependencies": {
+		"@evnt/pretty": "^0.1.2",
+		"@evnt/schema": "^0.1.2",
+		"@vitejs/plugin-react": "^6.0.4",
+		"discord-jsx-renderer": "^0.0.16",
+		"discord.js": "^14.27.0",
+		"dotenv": "^17.4.2",
+		"hono": "^4.12.31",
+		"react": "^19.2.8",
+		"temporal-polyfill-lite": "^0.4.2",
+		"vite": "^8.1.5",
+		"zod": "^4.4.3"
+	},
+	"devDependencies": {
+		"@evnt/types": "^0.1.2",
+		"@types/node": "^26.1.1",
+		"@types/react": "^19.2.17",
+		"oxfmt": "^0.60.0",
+		"oxlint": "^1.75.0",
+		"react-dom": "^19.2.8",
+		"typescript": "^7.0.2"
+	},
+	"devEngines": {
+		"packageManager": {
+			"name": "pnpm",
+			"version": "^11.15.1",
+			"onFail": "download"
+		}
+	},
+	"engines": {
+		"node": ">=26"
+	}
+}
