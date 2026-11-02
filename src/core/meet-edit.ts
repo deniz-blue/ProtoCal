@@ -21,7 +21,6 @@ export const answerEditButton = async (interaction: ButtonInteraction, threadId:
 	}
 	const editUrl = `${PUBLIC_URL}/edit/${meetEditGrants.grant({ threadId, userId: interaction.user.id })}`;
 	await interaction.reply({
-		content: "-# The Edit link works for an hour, and only you have it.",
 		components: [meetEditButtons(threadId, editUrl)],
 		flags: MessageFlags.Ephemeral,
 	});

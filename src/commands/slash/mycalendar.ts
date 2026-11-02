@@ -23,7 +23,6 @@ export default defineCommand({
 		const link = await calendarLinkOf(interaction.user.id, { replace });
 		const indexUrl = calendarIndexUrl(link.token);
 		await interaction.reply({
-			content: `\`${indexUrl}\``,
 			components: [
 				new ActionRowBuilder<ButtonBuilder>().addComponents(
 					new ButtonBuilder()

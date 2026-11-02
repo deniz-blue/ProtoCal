@@ -64,9 +64,9 @@ export const meetPostButtons = (threadId: string, viewable: boolean) => {
 
 export const meetEditButtons = (threadId: string, editUrl: string) =>
 	new ActionRowBuilder<ButtonBuilder>().addComponents(
-		new ButtonBuilder().setLabel("Edit").setStyle(ButtonStyle.Link).setURL(editUrl),
 		new ButtonBuilder()
 			.setCustomId(`${MEET_FORM_BUTTON}:${meetFormTargetOfEdit(threadId)}`)
-			.setLabel("Edit here")
+			.setLabel("Edit on Discord")
 			.setStyle(ButtonStyle.Secondary),
+		new ButtonBuilder().setLabel("Edit via App").setStyle(ButtonStyle.Link).setURL(editUrl),
 	);
