@@ -10,12 +10,10 @@ export const EDITOR_URL = process.env.PROTOCAL_EDITOR_URL ?? "https://eventsl.in
 
 export const VIEWER_URL = process.env.PROTOCAL_VIEWER_URL ?? "https://eventsl.ink/event";
 
-export const meetDocumentUrl = (threadId: string) => `${PUBLIC_URL}/events/${threadId}.evnt.json`;
+export const INDEX_VIEWER_URL =
+	process.env.PROTOCAL_INDEX_VIEWER_URL ?? "https://eventsl.ink/index";
 
-export const VANTAGE_URL = (process.env.PROTOCAL_VANTAGE_URL ?? "https://vantage.tsx.lt").replace(
-	/\/$/,
-	"",
-);
+export const meetDocumentUrl = (threadId: string) => `${PUBLIC_URL}/events/${threadId}.evnt.json`;
 
 export const forumIndexUrl = (forumId: string) => `${PUBLIC_URL}/forums/${forumId}.json`;
 
@@ -24,5 +22,8 @@ export const calendarIndexUrl = (token: string) => `${PUBLIC_URL}/calendars/${to
 export const calendarDocumentUrl = (token: string, threadId: string) =>
 	`${PUBLIC_URL}/calendars/${token}/events/${threadId}.evnt.json`;
 
-export const vantageSubscribeUrl = (indexUrl: string) =>
-	`${VANTAGE_URL}/settings/calendars?subscribe=${encodeURIComponent(indexUrl)}`;
+export const indexViewUrl = (indexUrl: string) => {
+	const viewer = new URL(INDEX_VIEWER_URL);
+	viewer.searchParams.set("url", indexUrl);
+	return viewer.toString();
+};
