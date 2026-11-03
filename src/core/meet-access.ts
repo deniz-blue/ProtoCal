@@ -5,7 +5,7 @@ import {
 	type Guild,
 	type GuildMember,
 } from "discord.js";
-import { meetForumOf, meetForumsOfGuild } from "../db/meets.js";
+import { meetForumsOfGuild } from "../db/meets.js";
 import type { MeetForum } from "../db/schema.js";
 
 export const forumOfGuild = async (guild: Guild, forumId: string) => {
@@ -47,12 +47,5 @@ export const meetForumsOpenTo = async (member: GuildMember) => {
 	return forums;
 };
 
-export const meetForumOpenTo = async (
-	member: GuildMember,
-	forumId: string,
-): Promise<OpenMeetForum | null> => {
-	const settings = await meetForumOf(forumId);
-	const channel = settings && (await forumOfGuild(member.guild, forumId));
-	if (!settings || !channel) return null;
-	return memberMayPostMeetIn(member, { channel, settings }) ? { channel, settings } : null;
-};
+export const meetForumOpenTo = async (member: GuildMember, forumId: string) =>
+	(await meetForumsOpenTo(member)).find((forum) => forum.channel.id === forumId) ?? null;

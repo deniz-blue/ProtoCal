@@ -6,9 +6,14 @@ import {
 	userMention,
 } from "discord.js";
 import type { MeetRequest } from "../db/schema.js";
-import { MEET_FORM_BUTTON, MESSAGE_MAX, meetPostContent } from "./meet-post.js";
+import {
+	MEET_FORM_BUTTON,
+	MESSAGE_MAX,
+	meetFormTargetOfRequest,
+	meetPostContent,
+} from "./meet-post.js";
 
-export const MEET_REQUEST_BUTTON = "meet-request";
+const MEET_REQUEST_BUTTON = "meet-request";
 
 export type MeetRequestAction = "post" | "decline" | "decline-reason" | "withdraw";
 
@@ -21,8 +26,6 @@ export const meetRequestActionOf = (customId: string) => {
 	return { action: action as MeetRequestAction, id };
 };
 
-export const meetFormTargetOfRequest = (id: string) => `request:${id}`;
-
 export type MeetRequestOutcome =
 	| { kind: "open" }
 	| { kind: "posted"; by: string; threadId: string }
@@ -31,18 +34,14 @@ export type MeetRequestOutcome =
 
 const EXPIRED = "⌛ Nobody got to it before the meet would have been over.";
 
-const button = (customId: string, label: string, style: ButtonStyle) =>
+const button = (customId: string, label: string, style = ButtonStyle.Secondary) =>
 	new ButtonBuilder().setCustomId(customId).setLabel(label).setStyle(style);
 
 const editButton = (request: MeetRequest, label: string) =>
-	button(
-		`${MEET_FORM_BUTTON}:${meetFormTargetOfRequest(request.id)}`,
-		label,
-		ButtonStyle.Secondary,
-	);
+	button(`${MEET_FORM_BUTTON}:${meetFormTargetOfRequest(request.id)}`, label);
 
-const withPreview = (request: MeetRequest, head: string[], buttons: ButtonBuilder[]) => {
-	const top = head.join("\n");
+const withPreview = (request: MeetRequest, head: string[], buttons: ButtonBuilder[] = []) => {
+	const top = head.filter(Boolean).join("\n");
 	const preview = meetPostContent(
 		request.document,
 		[request.hostId],
@@ -57,60 +56,32 @@ const withPreview = (request: MeetRequest, head: string[], buttons: ButtonBuilde
 	};
 };
 
-const editedNote = (request: MeetRequest) => {
-	if (request.hostEdited && request.moderatorsEdited)
-		return "-# Edited by the host and by the moderators";
-	if (request.hostEdited) return "-# Edited by the host";
-	if (request.moderatorsEdited) return "-# Edited by the moderators";
-	return null;
-};
-
-const declinedLine = (request: MeetRequest) =>
-	`❌ Declined by ${userMention(request.handledBy ?? "")}${request.declineReason ? `: ${request.declineReason}` : ""}`;
+const reasonOf = (request: MeetRequest) =>
+	request.declineReason ? `: ${request.declineReason}` : "";
 
 export const meetRequestCard = (request: MeetRequest, outcome: MeetRequestOutcome) => {
 	const head = [
 		`${userMention(request.hostId)} wants to post this in ${channelMention(request.forumId)}`,
+		request.hostEdited ? "-# Edited by the host" : "",
+		outcome.kind === "open" && !request.dmChannelId
+			? "-# Their DMs are closed, so I cannot tell them what happens."
+			: "",
 	];
-	const edited = editedNote(request);
-	if (edited) head.push(edited);
-	if (outcome.kind === "open" && request.dmChannelId === null)
-		head.push("-# Their DMs are closed, so I cannot tell them what happens.");
-
 	if (outcome.kind === "posted")
-		return withPreview(
-			request,
-			[...head, `✅ Posted by ${userMention(outcome.by)}: ${channelMention(outcome.threadId)}`],
-			[],
-		);
+		return withPreview(request, [
+			...head,
+			`✅ Posted by ${userMention(outcome.by)}: ${channelMention(outcome.threadId)}`,
+		]);
 	if (outcome.kind === "withdrawn")
-		return withPreview(request, [...head, "↩️ Withdrawn by the host"], []);
-	if (outcome.kind === "expired")
-		return withPreview(
-			request,
-			[...head, request.state === "declined" ? declinedLine(request) : EXPIRED],
-			[],
-		);
-	if (request.state === "posting")
-		return withPreview(
-			request,
-			[...head, `-# ${userMention(request.handledBy ?? "")} is posting it`],
-			[],
-		);
-
-	const post = button(
-		meetRequestCustomId("post", request.id),
-		request.state === "declined" ? "Post anyway" : "Post",
-		ButtonStyle.Primary,
-	);
+		return withPreview(request, [...head, "↩️ Withdrawn by the host"]);
+	if (outcome.kind === "expired") return withPreview(request, [...head, EXPIRED]);
 	if (request.state === "declined")
-		return withPreview(
-			request,
-			[...head, declinedLine(request)],
-			[post, editButton(request, "Edit")],
-		);
+		return withPreview(request, [
+			...head,
+			`❌ Declined by ${userMention(request.handledBy ?? "")}${reasonOf(request)}`,
+		]);
 	return withPreview(request, head, [
-		post,
+		button(meetRequestCustomId("post", request.id), "Post", ButtonStyle.Primary),
 		editButton(request, "Edit"),
 		button(meetRequestCustomId("decline", request.id), "Decline", ButtonStyle.Danger),
 	]);
@@ -123,30 +94,26 @@ export const meetRequestHostView = (
 ) => {
 	const moderators = `the moderators of ${channelMention(request.forumId)} in **${guildName}**`;
 	if (outcome.kind === "posted")
+		return withPreview(request, [
+			`✅ Posted: ${channelMention(outcome.threadId)}${request.moderatorsEdited ? ", with changes by the moderators" : ""}`,
+		]);
+	if (outcome.kind === "withdrawn") return withPreview(request, ["↩️ You withdrew it."]);
+	if (outcome.kind === "expired") return withPreview(request, [EXPIRED]);
+	const withdraw = button(meetRequestCustomId("withdraw", request.id), "Withdraw");
+	if (request.state === "declined")
 		return withPreview(
 			request,
-			[
-				`✅ Posted: ${channelMention(outcome.threadId)}${request.moderatorsEdited ? ", with changes by the moderators" : ""}`,
-			],
-			[],
+			[`❌ Declined by ${moderators}${reasonOf(request)}`],
+			[editButton(request, "Edit and send again"), withdraw],
 		);
-	if (outcome.kind === "withdrawn") return withPreview(request, ["↩️ You withdrew it."], []);
-	const declined = `❌ Declined by ${moderators}${request.declineReason ? `: ${request.declineReason}` : ""}`;
-	if (outcome.kind === "expired")
-		return withPreview(request, [request.state === "declined" ? declined : EXPIRED], []);
-	if (request.state === "posting")
-		return withPreview(request, ["The moderators are posting it."], []);
-
-	const withdraw = button(
-		meetRequestCustomId("withdraw", request.id),
-		"Withdraw",
-		ButtonStyle.Secondary,
+	return withPreview(
+		request,
+		[
+			`Waiting for ${moderators}.`,
+			request.dmChannelId
+				? ""
+				: "-# Your DMs are closed, so this is the only place you can follow it.",
+		],
+		[editButton(request, "Edit"), withdraw],
 	);
-	if (request.state === "declined")
-		return withPreview(request, [declined], [editButton(request, "Edit and send again"), withdraw]);
-	const head = [`Waiting for ${moderators}.`];
-	if (request.moderatorsEdited) head.push("-# The moderators edited it.");
-	if (request.dmChannelId === null)
-		head.push("-# Your DMs are closed, so this is the only place you can follow it.");
-	return withPreview(request, head, [editButton(request, "Edit"), withdraw]);
 };

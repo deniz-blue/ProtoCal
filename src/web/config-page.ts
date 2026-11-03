@@ -41,9 +41,6 @@ const forumNotes = (forum: ForumConfig) =>
 		forum.reviewChannelId !== null &&
 			forum.everyoneCanPost &&
 			"screened, but @everyone can still make posts by hand",
-		forum.reviewChannelId !== null &&
-			!forum.botCanPostInReviewChannel &&
-			"ProtoCal cannot post in its review channel",
 	].filter(Boolean);
 
 const forumRow = (

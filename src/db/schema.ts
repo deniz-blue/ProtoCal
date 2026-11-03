@@ -36,7 +36,7 @@ export const meetRequests = sqliteTable("meet_requests", {
 	forumId: text("forum_id").notNull(),
 	hostId: text("host_id").notNull(),
 	document: text("document", { mode: "json" }).$type<OpenEvnt>().notNull(),
-	state: text("state", { enum: ["waiting", "posting", "declined"] }).notNull(),
+	state: text("state", { enum: ["waiting", "declined"] }).notNull(),
 	handledBy: text("handled_by"),
 	declineReason: text("decline_reason"),
 	hostEdited: integer("host_edited", { mode: "boolean" }).notNull(),

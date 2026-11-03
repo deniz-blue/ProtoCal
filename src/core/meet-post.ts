@@ -19,6 +19,7 @@ export const MEET_FORUM_PICK = "meet-forum-pick";
 
 export const meetFormTargetOfNew = (forumId: string) => `new:${forumId}`;
 export const meetFormTargetOfEdit = (threadId: string) => `edit:${threadId}`;
+export const meetFormTargetOfRequest = (requestId: string) => `request:${requestId}`;
 
 export const threadNameOf = (document: OpenEvnt) => meetNameOf(document).slice(0, THREAD_NAME_MAX);
 

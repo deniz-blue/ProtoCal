@@ -19,11 +19,6 @@ const MEET_FIELD_MAX_LENGTH: Record<keyof MeetFields, number> = {
 	description: 1500,
 };
 
-const MEET_FIELD_PLACEHOLDER = {
-	start: "2026-12-05 18:00, or 2026-12-05",
-	end: "2026-12-06 02:00, or 2026-12-07",
-};
-
 const rejectedDrafts = new Map<string, MeetFields>();
 const draftKey = (userId: string, target: string) => `${userId}:${target}`;
 
@@ -56,8 +51,8 @@ export const meetFormModal = (target: string, filled: MeetFields | null) => {
 		.setTitle(target.startsWith("new:") ? "New meet" : "Edit meet")
 		.addComponents(
 			input("name", "Name", { required: true }),
-			input("start", "Start", { placeholder: MEET_FIELD_PLACEHOLDER.start }),
-			input("end", "End", { placeholder: MEET_FIELD_PLACEHOLDER.end }),
+			input("start", "Start", { placeholder: "2026-12-05 18:00, or 2026-12-05" }),
+			input("end", "End", { placeholder: "2026-12-06 02:00, or 2026-12-07" }),
 			input("place", "Place"),
 			input("description", "Description", { paragraph: true }),
 		);

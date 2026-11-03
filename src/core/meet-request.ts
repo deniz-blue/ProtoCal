@@ -18,11 +18,8 @@ import type { OpenEvnt } from "@evnt/schema";
 import {
 	allMeetRequests,
 	forgetMeetRequest,
-	forgetUnpostedMeetRequest,
 	meetRequestOf,
-	moveMeetRequest,
-	reopenPostingMeetRequest,
-	reviseUnpostedMeetRequest,
+	reviseMeetRequest,
 	saveMeetRequest,
 } from "../db/meet-requests.js";
 import type { MeetRequest } from "../db/schema.js";
@@ -42,6 +39,13 @@ const log = createChildLogger("meet-request");
 
 const DECLINE_REASON_MAX = 300;
 
+const GONE = "This request is gone: it was posted, withdrawn or ran out.";
+
+const REVIEW_CHANNEL_UNREACHABLE =
+	"I could not post in this forum's review channel. Please tell staff.";
+
+type RequestInteraction = ButtonInteraction | ModalSubmitInteraction;
+
 const nowUnixSeconds = () => Math.floor(Date.now() / 1000);
 
 const guildNameOf = (client: Client, request: MeetRequest) =>
@@ -51,24 +55,23 @@ const isClosedDm = (error: unknown) =>
 	error instanceof DiscordAPIError &&
 	error.code === RESTJSONErrorCodes.CannotSendMessagesToThisUser;
 
+const tell = (interaction: RequestInteraction, content: string) =>
+	interaction.deferred || interaction.replied
+		? interaction.followUp({ content, flags: MessageFlags.Ephemeral, allowedMentions: {} })
+		: interaction.reply({ content, flags: MessageFlags.Ephemeral, allowedMentions: {} });
+
 export const sendMeetRequest = async (
 	interaction: ModalSubmitInteraction,
 	forum: OpenMeetForum,
 	document: OpenEvnt,
 	form: { target: string; fields: MeetFields },
 ) => {
-	const id = randomUUID();
 	const reviewChannel = await interaction.client.channels
 		.fetch(forum.settings.reviewChannelId ?? "")
 		.catch(() => null);
 	if (!reviewChannel?.isSendable())
-		return rejectDraft(
-			interaction,
-			form.target,
-			form.fields,
-			"This forum's review channel is gone, so I cannot send it to the moderators. Please tell staff.",
-		);
-
+		return rejectDraft(interaction, form.target, form.fields, REVIEW_CHANNEL_UNREACHABLE);
+	const id = randomUUID();
 	const request: MeetRequest = {
 		id,
 		guildId: forum.channel.guildId,
@@ -105,17 +108,11 @@ export const sendMeetRequest = async (
 	} catch (error) {
 		log.warn({ forum: forum.channel.id, error }, "Meet request card was not posted");
 		if (sent.dmMessageId) await dmChannel.messages.delete(sent.dmMessageId).catch(() => {});
-		return rejectDraft(
-			interaction,
-			form.target,
-			form.fields,
-			"I could not post in this forum's review channel. Please tell staff.",
-		);
+		return rejectDraft(interaction, form.target, form.fields, REVIEW_CHANNEL_UNREACHABLE);
 	}
 	await saveMeetRequest({ ...sent, cardMessageId: card.id });
 	forgetRejectedDraft(interaction.user.id, form.target);
 	log.info({ request: id, forum: forum.channel.id }, "Meet request sent");
-
 	await interaction.editReply(
 		sent.dmChannelId
 			? `Sent to the moderators of ${channelMention(forum.channel.id)}.`
@@ -141,27 +138,17 @@ const editHostDm = async (client: Client, request: MeetRequest, outcome: MeetReq
 };
 
 const showMeetRequest = async (
-	interaction: ButtonInteraction | ModalSubmitInteraction,
+	interaction: RequestInteraction,
 	request: MeetRequest,
 	outcome: MeetRequestOutcome,
 ) => {
-	const fromCard = interaction.message?.id === request.cardMessageId;
-	const fromHost = !fromCard && !!interaction.message && interaction.user.id === request.hostId;
-	if (fromCard) await interaction.editReply(meetRequestCard(request, outcome));
-	else await editCard(interaction.client, request, outcome);
-	if (fromHost)
+	await editCard(interaction.client, request, outcome);
+	if (request.dmMessageId) await editHostDm(interaction.client, request, outcome);
+	else if (interaction.user.id === request.hostId)
 		await interaction.editReply(
 			meetRequestHostView(request, outcome, guildNameOf(interaction.client, request)),
 		);
-	else await editHostDm(interaction.client, request, outcome);
 };
-
-const tell = (interaction: ButtonInteraction | ModalSubmitInteraction, content: string) =>
-	interaction.deferred || interaction.replied
-		? interaction.followUp({ content, flags: MessageFlags.Ephemeral, allowedMentions: {} })
-		: interaction.reply({ content, flags: MessageFlags.Ephemeral, allowedMentions: {} });
-
-const GONE = "This request is gone: it was posted, withdrawn or ran out.";
 
 const moderatedForumOf = async (client: Client, request: MeetRequest, userId: string) => {
 	const guild = client.guilds.cache.get(request.guildId);
@@ -170,38 +157,30 @@ const moderatedForumOf = async (client: Client, request: MeetRequest, userId: st
 	return forum && member && isMeetModerator(member, forum) ? forum : null;
 };
 
-const onlyModerators = (request: MeetRequest) =>
+const moderatorsOnly = (request: MeetRequest) =>
 	`Only the moderators of ${channelMention(request.forumId)} can do this.`;
 
-const alreadyHandled = (request: MeetRequest | null) => {
-	if (request?.state === "posting")
-		return `${userMention(request.handledBy ?? "")} already posted it.`;
-	if (request?.state === "declined")
-		return `${userMention(request.handledBy ?? "")} already declined it.`;
-	return GONE;
-};
+const notWaiting = (request: MeetRequest | null) =>
+	request?.state === "declined"
+		? `${userMention(request.handledBy ?? "")} already declined it.`
+		: GONE;
 
 export const postMeetRequest = async (interaction: ButtonInteraction, id: string) => {
 	await interaction.deferUpdate();
 	const request = await meetRequestOf(id);
 	if (!request) return tell(interaction, GONE);
 	const forum = await moderatedForumOf(interaction.client, request, interaction.user.id);
-	if (!forum) return tell(interaction, onlyModerators(request));
-	const claimed = await moveMeetRequest(id, ["waiting", "declined"], {
-		state: "posting",
-		handledBy: interaction.user.id,
-		declineReason: null,
-	});
-	if (!claimed) return tell(interaction, alreadyHandled(await meetRequestOf(id)));
+	if (!forum) return tell(interaction, moderatorsOnly(request));
+	const claimed = await forgetMeetRequest(id, { onlyIfWaiting: true });
+	if (!claimed) return tell(interaction, notWaiting(await meetRequestOf(id)));
 
 	let threadId: string;
 	try {
 		threadId = (await postNewMeet(forum, [claimed.hostId], claimed.document)).id;
 	} catch (error) {
-		await reopenPostingMeetRequest(id);
+		await saveMeetRequest(claimed);
 		throw error;
 	}
-	await forgetMeetRequest(id);
 	log.info({ request: id, thread: threadId, by: interaction.user.id }, "Meet request posted");
 	await showMeetRequest(interaction, claimed, {
 		kind: "posted",
@@ -214,8 +193,8 @@ export const askDeclineReason = async (interaction: ButtonInteraction, id: strin
 	const request = await meetRequestOf(id);
 	if (!request) return tell(interaction, GONE);
 	if (!(await moderatedForumOf(interaction.client, request, interaction.user.id)))
-		return tell(interaction, onlyModerators(request));
-	if (request.state !== "waiting") return tell(interaction, alreadyHandled(request));
+		return tell(interaction, moderatorsOnly(request));
+	if (request.state !== "waiting") return tell(interaction, notWaiting(request));
 	await interaction.showModal(
 		new ModalBuilder()
 			.setCustomId(meetRequestCustomId("decline-reason", id))
@@ -238,13 +217,17 @@ export const declineMeetRequest = async (interaction: ModalSubmitInteraction, id
 	const request = await meetRequestOf(id);
 	if (!request) return tell(interaction, GONE);
 	if (!(await moderatedForumOf(interaction.client, request, interaction.user.id)))
-		return tell(interaction, onlyModerators(request));
-	const declined = await moveMeetRequest(id, ["waiting"], {
-		state: "declined",
-		handledBy: interaction.user.id,
-		declineReason: interaction.fields.getTextInputValue("reason").trim() || null,
-	});
-	if (!declined) return tell(interaction, alreadyHandled(await meetRequestOf(id)));
+		return tell(interaction, moderatorsOnly(request));
+	const declined = await reviseMeetRequest(
+		id,
+		{
+			state: "declined",
+			handledBy: interaction.user.id,
+			declineReason: interaction.fields.getTextInputValue("reason").trim() || null,
+		},
+		{ onlyIfWaiting: true },
+	);
+	if (!declined) return tell(interaction, notWaiting(await meetRequestOf(id)));
 	log.info({ request: id, by: interaction.user.id }, "Meet request declined");
 	await showMeetRequest(interaction, declined, { kind: "open" });
 };
@@ -252,43 +235,27 @@ export const declineMeetRequest = async (interaction: ModalSubmitInteraction, id
 export const withdrawMeetRequest = async (interaction: ButtonInteraction, id: string) => {
 	await interaction.deferUpdate();
 	const request = await meetRequestOf(id);
-	if (!request) return tell(interaction, GONE);
-	if (request.hostId !== interaction.user.id)
+	if (request && request.hostId !== interaction.user.id)
 		return tell(interaction, "Only the host can withdraw it.");
-	const withdrawn = await forgetUnpostedMeetRequest(id);
-	if (!withdrawn) return tell(interaction, alreadyHandled(await meetRequestOf(id)));
+	const withdrawn = request && (await forgetMeetRequest(id));
+	if (!withdrawn) return tell(interaction, GONE);
 	log.info({ request: id }, "Meet request withdrawn");
 	await showMeetRequest(interaction, withdrawn, { kind: "withdrawn" });
 };
 
-export type MeetRequestEditor = "host" | "moderator";
-
-export const editorOfMeetRequest = async (
-	client: Client,
-	request: MeetRequest,
-	userId: string,
-): Promise<MeetRequestEditor | null> => {
+const editorOfMeetRequest = async (client: Client, request: MeetRequest, userId: string) => {
 	if (request.hostId === userId) return "host";
 	return (await moderatedForumOf(client, request, userId)) ? "moderator" : null;
 };
 
-const ONLY_EDITORS = "Only the host or the moderators can edit this.";
+const EDITORS_ONLY = "Only the host or the moderators can edit this.";
 
 export const meetRequestToEdit = async (interaction: ButtonInteraction, id: string) => {
 	const request = await meetRequestOf(id);
-	if (!request) {
-		await tell(interaction, GONE);
-		return null;
-	}
-	if (!(await editorOfMeetRequest(interaction.client, request, interaction.user.id))) {
-		await tell(interaction, ONLY_EDITORS);
-		return null;
-	}
-	if (request.state === "posting") {
-		await tell(interaction, alreadyHandled(request));
-		return null;
-	}
-	return request;
+	const editor =
+		request && (await editorOfMeetRequest(interaction.client, request, interaction.user.id));
+	if (!editor) await tell(interaction, request ? EDITORS_ONLY : GONE);
+	return editor ? request : null;
 };
 
 export const saveMeetRequestEdit = async (
@@ -299,34 +266,31 @@ export const saveMeetRequestEdit = async (
 	const request = await meetRequestOf(id);
 	if (!request) return tell(interaction, GONE);
 	const editor = await editorOfMeetRequest(interaction.client, request, interaction.user.id);
-	if (!editor) return tell(interaction, ONLY_EDITORS);
+	if (!editor) return tell(interaction, EDITORS_ONLY);
 	const checked = meetDocumentOfFields(form.fields, request.document);
 	if ("problem" in checked)
 		return rejectDraft(interaction, form.target, form.fields, checked.problem.message);
 	forgetRejectedDraft(interaction.user.id, form.target);
-	if (interaction.isFromMessage()) await interaction.deferUpdate();
-	else await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+	await interaction.deferUpdate();
 
 	const sendsAgain = editor === "host" && request.state === "declined";
-	const edited = await reviseUnpostedMeetRequest(id, {
+	const edited = await reviseMeetRequest(id, {
 		document: checked.document,
 		...(editor === "host" ? { hostEdited: true } : { moderatorsEdited: true }),
 		...(sendsAgain ? { state: "waiting", handledBy: null, declineReason: null } : {}),
 		updatedAt: nowUnixSeconds(),
 	});
-	if (!edited) return tell(interaction, alreadyHandled(await meetRequestOf(id)));
+	if (!edited) return tell(interaction, GONE);
 	log.info({ request: id, editor, sendsAgain }, "Meet request edited");
 	await showMeetRequest(interaction, edited, { kind: "open" });
-	if (!interaction.isFromMessage()) await interaction.editReply("Saved.");
 };
 
 export const dropMeetRequestsThatAreOver = async (client: Client, nowUnixSeconds: number) => {
 	for (const request of await allMeetRequests()) {
-		if (request.state === "posting") continue;
 		const overAt = meetIsOverAt(request.document);
 		if (overAt === null || overAt > nowUnixSeconds) continue;
-		const dropped = await forgetUnpostedMeetRequest(request.id);
-		if (!dropped) continue;
+		const dropped = await forgetMeetRequest(request.id);
+		if (dropped?.state !== "waiting") continue;
 		log.info({ request: request.id }, "Meet request ran out");
 		await editCard(client, dropped, { kind: "expired" });
 		await editHostDm(client, dropped, { kind: "expired" });

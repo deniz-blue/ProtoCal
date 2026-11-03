@@ -92,6 +92,7 @@ const occurrencesWith = (
 	end: string | null,
 ) => {
 	const [first, ...rest] = occurrences ?? [];
+	if (start === (first?.start ?? null) && end === (first?.end ?? null)) return occurrences;
 	const changed = withoutEmpty({ ...first, start, end } as Occurrence);
 	const changedOccurrences = changed ? [changed, ...rest] : rest;
 	return changedOccurrences.length > 0 ? changedOccurrences : undefined;
@@ -176,11 +177,7 @@ export const meetDocumentOfFields = (
 		...base,
 		name: fields.name === shown.name ? base.name : { und: fields.name },
 		venue: venueWith(base.venue, shown.place, fields.place),
-		occurrences:
-			start === (base.occurrences?.[0]?.start ?? null) &&
-			end === (base.occurrences?.[0]?.end ?? null)
-				? base.occurrences
-				: occurrencesWith(base.occurrences, start, end),
+		occurrences: occurrencesWith(base.occurrences, start, end),
 		components: componentsWith(base.components, shown.description, fields.description),
 	} as OpenEvnt);
 	return validateMeetDocument(document);

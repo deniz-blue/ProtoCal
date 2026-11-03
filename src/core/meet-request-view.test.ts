@@ -42,11 +42,11 @@ test("a waiting request's card asks the moderators, and the host can edit or wit
 	]);
 });
 
-test("a declined request shows who and why, and can still be posted or sent again", () => {
+test("a declined request shows who and why, and the host can send it again", () => {
 	const declined = request({ state: "declined", handledBy: "8", declineReason: "no place yet" });
 	const card = meetRequestCard(declined, { kind: "open" });
 	assert.match(card.content, /❌ Declined by <@8>: no place yet/);
-	assert.deepEqual(labelsOf(card), ["Post anyway", "Edit"]);
+	assert.deepEqual(labelsOf(card), []);
 	const hostView = meetRequestHostView(declined, { kind: "open" }, "LTFur");
 	assert.match(
 		hostView.content,

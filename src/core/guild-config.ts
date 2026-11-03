@@ -32,7 +32,6 @@ export type ForumConfig = {
 	hasDefaultReaction: boolean;
 	everyoneCanView: boolean;
 	everyoneCanPost: boolean;
-	botCanPostInReviewChannel: boolean;
 };
 
 export type GuildConfigChange = {
@@ -45,18 +44,6 @@ export const reviewChannelsOf = async (guild: Guild) =>
 	[...(await guild.channels.fetch()).values()]
 		.filter((channel): channel is TextChannel => channel?.type === ChannelType.GuildText)
 		.sort((a, b) => a.rawPosition - b.rawPosition);
-
-const botCanPostIn = (guild: Guild, channelId: string | null) => {
-	const channel = channelId ? guild.channels.cache.get(channelId) : null;
-	const me = guild.members.me;
-	return (
-		!!channel &&
-		!!me &&
-		channel
-			.permissionsFor(me)
-			.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages])
-	);
-};
 
 export const forumConfigsOf = async (guild: Guild): Promise<ForumConfig[]> => {
 	const forums = [...(await guild.channels.fetch()).values()]
@@ -75,7 +62,6 @@ export const forumConfigsOf = async (guild: Guild): Promise<ForumConfig[]> => {
 			hasDefaultReaction: !!forum.defaultReactionEmoji,
 			everyoneCanView: everyone.has(PermissionFlagsBits.ViewChannel),
 			everyoneCanPost: everyone.has(PermissionFlagsBits.SendMessages),
-			botCanPostInReviewChannel: botCanPostIn(guild, reviewChannelId),
 		};
 	});
 	for (const forum of saved.values())
@@ -89,7 +75,6 @@ export const forumConfigsOf = async (guild: Guild): Promise<ForumConfig[]> => {
 				hasDefaultReaction: false,
 				everyoneCanView: false,
 				everyoneCanPost: false,
-				botCanPostInReviewChannel: botCanPostIn(guild, forum.reviewChannelId),
 			});
 	return configs;
 };
