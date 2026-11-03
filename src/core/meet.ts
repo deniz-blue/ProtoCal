@@ -6,6 +6,7 @@ import {
 	userMention,
 	type AnyThreadChannel,
 	type Client,
+	type ForumChannel,
 	type Guild,
 	type PartialUser,
 	type User,
@@ -93,6 +94,29 @@ export const startMeet = async (
 		allowedMentions: { roles: announced },
 	});
 	return "started";
+};
+
+export const postNewMeet = async (
+	forum: ForumChannel,
+	organizers: string[],
+	document: OpenEvnt,
+) => {
+	const thread = await forum.threads.create({
+		name: threadNameOf(document),
+		message: {
+			content: meetPostContent(document, organizers, nowUnixSeconds()),
+			allowedMentions: {},
+		},
+	});
+	const starter = await thread.fetchStarterMessage();
+	await starter?.edit({
+		components: [meetPostButtons(thread.id, await everyoneCanViewForum(thread.guild, forum.id))],
+	});
+	await startMeet(thread, {
+		organizers,
+		document: { ...document, id: meetDocumentUrl(thread.id) },
+	});
+	return thread;
 };
 
 export const endMeet = async (guild: Guild, threadId: string) => {

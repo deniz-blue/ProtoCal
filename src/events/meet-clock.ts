@@ -1,6 +1,7 @@
 import { Events } from "discord.js";
 import { defineEvent } from "../core/define.js";
 import { endMeetsThatAreOver } from "../core/meet.js";
+import { dropMeetRequestsThatAreOver } from "../core/meet-request.js";
 import { createChildLogger } from "../lib/logger.js";
 
 const log = createChildLogger("meet-clock");
@@ -15,6 +16,7 @@ export default defineEvent({
 		const check = async () => {
 			const nowUnixSeconds = Math.floor(Date.now() / 1000);
 			await endMeetsThatAreOver(client, nowUnixSeconds);
+			await dropMeetRequestsThatAreOver(client, nowUnixSeconds);
 		};
 		const checkAndLog = () => check().catch((error) => log.error({ error }, "Meet check failed"));
 		clearInterval(checking);

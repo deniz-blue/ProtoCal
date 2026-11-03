@@ -5,7 +5,8 @@ import {
 	type Guild,
 	type GuildMember,
 } from "discord.js";
-import { meetForumsOfGuild } from "../db/meets.js";
+import { meetForumOf, meetForumsOfGuild } from "../db/meets.js";
+import type { MeetForum } from "../db/schema.js";
 
 export const forumOfGuild = async (guild: Guild, forumId: string) => {
 	const forum = await guild.channels.fetch(forumId).catch(() => null);
@@ -17,16 +18,41 @@ export const everyoneCanViewForum = async (guild: Guild, forumId: string) => {
 	return forum?.permissionsFor(guild.roles.everyone).has(PermissionFlagsBits.ViewChannel) ?? false;
 };
 
-export const memberCanPostIn = (member: GuildMember, forum: ForumChannel) =>
-	forum
-		.permissionsFor(member)
-		.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages]);
+export const isMeetModerator = (member: GuildMember, forum: ForumChannel) =>
+	forum.permissionsFor(member).has(PermissionFlagsBits.ManageThreads);
 
-export const meetForumsMemberCanPostIn = async (member: GuildMember) => {
-	const forums: ForumChannel[] = [];
-	for (const { forumId } of await meetForumsOfGuild(member.guild.id)) {
-		const forum = await forumOfGuild(member.guild, forumId);
-		if (forum && memberCanPostIn(member, forum)) forums.push(forum);
+export const isScreened = (forum: MeetForum) => forum.reviewChannelId !== null;
+
+export type OpenMeetForum = { channel: ForumChannel; settings: MeetForum };
+
+export const meetGoesToReview = (member: GuildMember, forum: OpenMeetForum) =>
+	isScreened(forum.settings) && !isMeetModerator(member, forum.channel);
+
+const memberMayPostMeetIn = (member: GuildMember, forum: OpenMeetForum) =>
+	forum.channel
+		.permissionsFor(member)
+		.has(
+			isScreened(forum.settings)
+				? [PermissionFlagsBits.ViewChannel]
+				: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages],
+		);
+
+export const meetForumsOpenTo = async (member: GuildMember) => {
+	const forums: OpenMeetForum[] = [];
+	for (const settings of await meetForumsOfGuild(member.guild.id)) {
+		const channel = await forumOfGuild(member.guild, settings.forumId);
+		if (channel && memberMayPostMeetIn(member, { channel, settings }))
+			forums.push({ channel, settings });
 	}
 	return forums;
+};
+
+export const meetForumOpenTo = async (
+	member: GuildMember,
+	forumId: string,
+): Promise<OpenMeetForum | null> => {
+	const settings = await meetForumOf(forumId);
+	const channel = settings && (await forumOfGuild(member.guild, forumId));
+	if (!settings || !channel) return null;
+	return memberMayPostMeetIn(member, { channel, settings }) ? { channel, settings } : null;
 };

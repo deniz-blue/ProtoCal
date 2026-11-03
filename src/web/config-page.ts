@@ -1,4 +1,4 @@
-import type { Role } from "discord.js";
+import type { Role, TextChannel } from "discord.js";
 import { html } from "hono/html";
 import type { ForumConfig, GuildConfigChange } from "../core/guild-config.js";
 import { forumIndexUrl } from "../lib/config.js";
@@ -8,23 +8,29 @@ export type ConfigPageOptions = {
 	guildName: string;
 	forums: ForumConfig[];
 	roles: Role[];
+	reviewChannels: Pick<TextChannel, "id" | "name">[];
 	saved: boolean;
 };
 
 const MEET_FIELD = "meet";
 const ANNOUNCE_FIELD_PREFIX = "announce:";
+const REVIEW_FIELD_PREFIX = "review:";
+
+const valuesByForum = (form: Record<string, unknown>, prefix: string) =>
+	new Map(
+		Object.entries(form).flatMap(([field, value]) =>
+			field.startsWith(prefix) && typeof value === "string"
+				? [[field.slice(prefix.length), value] as const]
+				: [],
+		),
+	);
 
 export const guildConfigChangeOfForm = (form: Record<string, unknown>): GuildConfigChange => ({
 	meetForumIds: new Set(
 		[form[MEET_FIELD] ?? []].flat().filter((id): id is string => typeof id === "string"),
 	),
-	announceRoleIdOf: new Map(
-		Object.entries(form).flatMap(([field, value]) =>
-			field.startsWith(ANNOUNCE_FIELD_PREFIX) && typeof value === "string"
-				? [[field.slice(ANNOUNCE_FIELD_PREFIX.length), value] as const]
-				: [],
-		),
-	),
+	announceRoleIdOf: valuesByForum(form, ANNOUNCE_FIELD_PREFIX),
+	reviewChannelIdOf: valuesByForum(form, REVIEW_FIELD_PREFIX),
 });
 
 const forumNotes = (forum: ForumConfig) =>
@@ -32,9 +38,19 @@ const forumNotes = (forum: ForumConfig) =>
 		forum.name === null && "deleted",
 		forum.name !== null && !forum.everyoneCanView && "hidden from @everyone",
 		forum.isMeetForum && forum.name !== null && !forum.hasDefaultReaction && "no default reaction",
+		forum.reviewChannelId !== null &&
+			forum.everyoneCanPost &&
+			"screened, but @everyone can still make posts by hand",
+		forum.reviewChannelId !== null &&
+			!forum.botCanPostInReviewChannel &&
+			"ProtoCal cannot post in its review channel",
 	].filter(Boolean);
 
-const forumRow = (forum: ForumConfig, roles: Role[]) => html` <tr>
+const forumRow = (
+	forum: ForumConfig,
+	roles: Role[],
+	reviewChannels: ConfigPageOptions["reviewChannels"],
+) => html` <tr>
 	<td>
 		<label for="meet-${forum.forumId}"
 			>${forum.name === null ? forum.forumId : `#${forum.name}`}</label
@@ -67,9 +83,32 @@ const forumRow = (forum: ForumConfig, roles: Role[]) => html` <tr>
 			)}
 		</select>
 	</td>
+	<td>
+		<select
+			name="${REVIEW_FIELD_PREFIX}${forum.forumId}"
+			aria-label="Review channel for ${forum.name ?? forum.forumId}"
+		>
+			<option value="">None</option>
+			${reviewChannels.map(
+				(channel) =>
+					html`<option
+						value="${channel.id}"
+						${channel.id === forum.reviewChannelId && html`selected`}
+					>
+						#${channel.name}
+					</option>`,
+			)}
+		</select>
+	</td>
 </tr>`;
 
-export const configPage = ({ guildName, forums, roles, saved }: ConfigPageOptions) =>
+export const configPage = ({
+	guildName,
+	forums,
+	roles,
+	reviewChannels,
+	saved,
+}: ConfigPageOptions) =>
 	page(
 		`ProtoCal · ${guildName}`,
 		html`<h1>ProtoCal · ${guildName}</h1>
@@ -80,6 +119,11 @@ export const configPage = ({ guildName, forums, roles, saved }: ConfigPageOption
 					Every new post in a meet forum becomes a meet. The announce role is pinged when one is
 					posted. Members react with the forum's default reaction to attend.
 				</p>
+				<p class="hint">
+					With a review channel, a new meet goes there first, and anyone with Manage Threads in the
+					forum posts, edits or declines it. Turn Create Posts off for members in a screened forum,
+					so the bot's form is the only way in.
+				</p>
 				${forums.length === 0
 					? html`<p>This server has no forums.</p>`
 					: html`<table>
@@ -88,10 +132,11 @@ export const configPage = ({ guildName, forums, roles, saved }: ConfigPageOption
 									<th>Forum</th>
 									<th>Meets</th>
 									<th>Announce role</th>
+									<th>Review channel</th>
 								</tr>
 							</thead>
 							<tbody>
-								${forums.map((forum) => forumRow(forum, roles))}
+								${forums.map((forum) => forumRow(forum, roles, reviewChannels))}
 							</tbody>
 						</table>`}
 				<button>Save</button>

@@ -7,7 +7,7 @@
 		"dev": "node ./vite.server.ts",
 		"pub": "node ./vite.server.ts --entry publish",
 		"pubglobal": "node ./vite.server.ts --entry publish --global",
-		"test": "node --test src/",
+		"test": "node --import ./resolve-ts-imports.ts --test src/",
 		"db:push": "drizzle-kit push",
 		"lint": "oxlint src/",
 		"fmt": "oxfmt src/"

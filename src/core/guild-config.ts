@@ -4,6 +4,7 @@ import {
 	type ForumChannel,
 	type Guild,
 	type PermissionsBitField,
+	type TextChannel,
 } from "discord.js";
 import { allMeets, forgetMeetForum, meetForumsOfGuild, saveMeetForum } from "../db/meets.js";
 import { client } from "../services/client.js";
@@ -27,13 +28,34 @@ export type ForumConfig = {
 	name: string | null;
 	isMeetForum: boolean;
 	announceRoleId: string | null;
+	reviewChannelId: string | null;
 	hasDefaultReaction: boolean;
 	everyoneCanView: boolean;
+	everyoneCanPost: boolean;
+	botCanPostInReviewChannel: boolean;
 };
 
 export type GuildConfigChange = {
 	meetForumIds: Set<string>;
 	announceRoleIdOf: Map<string, string>;
+	reviewChannelIdOf: Map<string, string>;
+};
+
+export const reviewChannelsOf = async (guild: Guild) =>
+	[...(await guild.channels.fetch()).values()]
+		.filter((channel): channel is TextChannel => channel?.type === ChannelType.GuildText)
+		.sort((a, b) => a.rawPosition - b.rawPosition);
+
+const botCanPostIn = (guild: Guild, channelId: string | null) => {
+	const channel = channelId ? guild.channels.cache.get(channelId) : null;
+	const me = guild.members.me;
+	return (
+		!!channel &&
+		!!me &&
+		channel
+			.permissionsFor(me)
+			.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages])
+	);
 };
 
 export const forumConfigsOf = async (guild: Guild): Promise<ForumConfig[]> => {
@@ -41,16 +63,21 @@ export const forumConfigsOf = async (guild: Guild): Promise<ForumConfig[]> => {
 		.filter((channel): channel is ForumChannel => channel?.type === ChannelType.GuildForum)
 		.sort((a, b) => a.rawPosition - b.rawPosition);
 	const saved = new Map((await meetForumsOfGuild(guild.id)).map((forum) => [forum.forumId, forum]));
-	const configs: ForumConfig[] = forums.map((forum) => ({
-		forumId: forum.id,
-		name: forum.name,
-		isMeetForum: saved.has(forum.id),
-		announceRoleId: saved.get(forum.id)?.announceRoleId ?? null,
-		hasDefaultReaction: !!forum.defaultReactionEmoji,
-		everyoneCanView: forum
-			.permissionsFor(guild.roles.everyone)
-			.has(PermissionFlagsBits.ViewChannel),
-	}));
+	const configs: ForumConfig[] = forums.map((forum) => {
+		const everyone = forum.permissionsFor(guild.roles.everyone);
+		const reviewChannelId = saved.get(forum.id)?.reviewChannelId ?? null;
+		return {
+			forumId: forum.id,
+			name: forum.name,
+			isMeetForum: saved.has(forum.id),
+			announceRoleId: saved.get(forum.id)?.announceRoleId ?? null,
+			reviewChannelId,
+			hasDefaultReaction: !!forum.defaultReactionEmoji,
+			everyoneCanView: everyone.has(PermissionFlagsBits.ViewChannel),
+			everyoneCanPost: everyone.has(PermissionFlagsBits.SendMessages),
+			botCanPostInReviewChannel: botCanPostIn(guild, reviewChannelId),
+		};
+	});
 	for (const forum of saved.values())
 		if (!forums.some(({ id }) => id === forum.forumId))
 			configs.push({
@@ -58,8 +85,11 @@ export const forumConfigsOf = async (guild: Guild): Promise<ForumConfig[]> => {
 				name: null,
 				isMeetForum: true,
 				announceRoleId: forum.announceRoleId,
+				reviewChannelId: forum.reviewChannelId,
 				hasDefaultReaction: false,
 				everyoneCanView: false,
+				everyoneCanPost: false,
+				botCanPostInReviewChannel: botCanPostIn(guild, forum.reviewChannelId),
 			});
 	return configs;
 };
@@ -75,16 +105,19 @@ export const announceableRolesOf = async (guild: Guild) => {
 
 export const saveGuildConfig = async (guild: Guild, change: GuildConfigChange) => {
 	const roleIds = new Set((await announceableRolesOf(guild)).map((role) => role.id));
+	const reviewChannelIds = new Set((await reviewChannelsOf(guild)).map((channel) => channel.id));
 	for (const forum of await forumConfigsOf(guild)) {
 		if (!change.meetForumIds.has(forum.forumId)) {
 			if (forum.isMeetForum) await forgetMeetForum(forum.forumId);
 			continue;
 		}
 		const announceRoleId = change.announceRoleIdOf.get(forum.forumId) ?? "";
+		const reviewChannelId = change.reviewChannelIdOf.get(forum.forumId) ?? "";
 		await saveMeetForum({
 			forumId: forum.forumId,
 			guildId: guild.id,
 			announceRoleId: roleIds.has(announceRoleId) ? announceRoleId : null,
+			reviewChannelId: reviewChannelIds.has(reviewChannelId) ? reviewChannelId : null,
 		});
 	}
 };

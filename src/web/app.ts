@@ -15,6 +15,7 @@ import {
 	announceableRolesOf,
 	forumConfigsOf,
 	guildOfConfigGrant,
+	reviewChannelsOf,
 	saveGuildConfig,
 } from "../core/guild-config.js";
 import { configPage, guildConfigChangeOfForm } from "./config-page.js";
@@ -164,6 +165,7 @@ app.get("/config/:token", async (context) => {
 			guildName: guild.name,
 			forums: await forumConfigsOf(guild),
 			roles: await announceableRolesOf(guild),
+			reviewChannels: await reviewChannelsOf(guild),
 			saved: context.req.query("saved") !== undefined,
 		}),
 	);

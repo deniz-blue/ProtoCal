@@ -10,7 +10,7 @@ import {
 } from "./meet-document.js";
 
 // Discord limits: a message is 2000 characters, a thread name 100.
-const MESSAGE_MAX = 2000;
+export const MESSAGE_MAX = 2000;
 export const THREAD_NAME_MAX = 100;
 
 export const MEET_FORM_BUTTON = "meet-form";
@@ -26,6 +26,7 @@ export const meetPostContent = (
 	document: OpenEvnt,
 	organizers: string[],
 	updatedAtUnixSeconds: number,
+	maxLength = MESSAGE_MAX,
 ) => {
 	const dates = meetDatesAsDiscord(document);
 	const place = meetPlaceOf(document);
@@ -39,7 +40,7 @@ export const meetPostContent = (
 	const foot = `-# Last updated at <t:${updatedAtUnixSeconds}:R>`;
 	const description = meetDescriptionOf(document);
 	if (!description) return [head, foot].join("\n\n");
-	const room = MESSAGE_MAX - head.length - foot.length - 4;
+	const room = maxLength - head.length - foot.length - 4;
 	const shown = description.length > room ? `${description.slice(0, room - 1)}…` : description;
 	return [head, shown, foot].join("\n\n");
 };

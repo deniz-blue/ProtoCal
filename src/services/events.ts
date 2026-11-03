@@ -13,8 +13,11 @@ export const events: EventModuleDefault[] = Object.values(
 const answerFailedInteraction = async (interaction: BaseInteraction, error: unknown) => {
 	if (!interaction.isRepliable()) return;
 	const content = `❌ ${error instanceof AppError ? error.message : "An unexpected error occurred."}`;
-	if (interaction.deferred && !interaction.replied) await interaction.editReply(content);
-	else if (interaction.replied)
+	// discord.js leaves `ephemeral` null after deferUpdate, and editReply would then overwrite the clicked message.
+	const deferredAsUpdate = interaction.deferred && interaction.ephemeral === null;
+	if (interaction.deferred && !interaction.replied && !deferredAsUpdate)
+		await interaction.editReply(content);
+	else if (interaction.replied || deferredAsUpdate)
 		await interaction.followUp({ content, flags: MessageFlags.Ephemeral });
 	else await interaction.reply({ content, flags: MessageFlags.Ephemeral });
 };

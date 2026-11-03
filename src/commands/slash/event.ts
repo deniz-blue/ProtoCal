@@ -9,7 +9,8 @@ import {
 import { defineCommand } from "../../core/define.js";
 import { offerNewMeetForm } from "../../core/meet-form.js";
 import { startMeet } from "../../core/meet.js";
-import { meetOfThread } from "../../db/meets.js";
+import { meetForumOf, meetOfThread } from "../../db/meets.js";
+import { isScreened } from "../../core/meet-access.js";
 
 const trackPost = async (interaction: ChatInputCommandInteraction) => {
 	const reply = (content: string) => interaction.editReply({ content, allowedMentions: {} });
@@ -20,10 +21,13 @@ const trackPost = async (interaction: ChatInputCommandInteraction) => {
 		await reply("Run this inside the post.");
 		return;
 	}
-	const mayTrack =
-		thread.ownerId === interaction.user.id ||
-		(interaction.memberPermissions?.has(PermissionFlagsBits.ManageThreads) ?? false);
-	if (!mayTrack) {
+	const isStaff = interaction.memberPermissions?.has(PermissionFlagsBits.ManageThreads) ?? false;
+	const forum = thread.parentId ? await meetForumOf(thread.parentId) : null;
+	if (forum && isScreened(forum) && !isStaff) {
+		await reply("Moderators check every meet in this forum, so only staff can do this.");
+		return;
+	}
+	if (thread.ownerId !== interaction.user.id && !isStaff) {
 		await reply("Only the person who posted it or staff can do this.");
 		return;
 	}
