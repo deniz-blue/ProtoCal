@@ -1,0 +1,291 @@
+<!doctype html>
+	<html lang="en">
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="referrer" content="no-referrer" />
+		<title>ProtoCal · haj &amp; &lt;house&gt;</title>
+		<style>
+			:root {
+				color-scheme: dark;
+				accent-color: #b48cff;
+			}
+			body {
+				background: #000;
+				color: #ddd;
+				font:
+					17px/1.5 system-ui,
+					sans-serif;
+				margin: 0;
+				padding: 2rem 1.5rem;
+			}
+			a {
+				color: #b48cff;
+			}
+			h1 {
+				font-size: 1.4rem;
+				margin: 0 0 1.5rem;
+			}
+			h2 {
+				font-size: 1.1rem;
+				margin: 1.5rem 0 0.25rem;
+			}
+			.hint {
+				color: #888;
+				font-size: 0.85em;
+			}
+			table {
+				border-collapse: collapse;
+				margin: 0.75rem 0 1.25rem;
+			}
+			th {
+				color: #888;
+				font-weight: normal;
+				text-align: left;
+			}
+			th,
+			td {
+				padding: 0.35rem 1.25rem 0.35rem 0;
+				vertical-align: top;
+			}
+			select,
+			button {
+				font: inherit;
+				color: inherit;
+				background: #111;
+				border: 1px solid #333;
+				border-radius: 6px;
+				padding: 0.3rem 0.5rem;
+			}
+			button {
+				background: #b48cff;
+				color: #000;
+				border: 0;
+				padding: 0.4rem 1.2rem;
+				cursor: pointer;
+			}
+		</style>
+		<h1>ProtoCal · haj &amp; &lt;house&gt;</h1>
+			
+			<form method="post">
+				<h2>Meet forums</h2>
+				<p class="hint">
+					Every new post in a meet forum becomes a meet. The announce role is pinged when one is
+					posted. Members react with the forum's default reaction to attend.
+				</p>
+				<p class="hint">
+					With a review channel, a new meet goes there first, and anyone with Manage Threads in the
+					forum posts, edits or declines it. Turn Create Posts off for members in a screened forum,
+					so the bot's form is the only way in.
+				</p>
+				<table>
+							<thead>
+								<tr>
+									<th>Forum</th>
+									<th>Meets</th>
+									<th>Announce role</th>
+									<th>Review channel</th>
+								</tr>
+							</thead>
+							<tbody>
+								 <tr>
+	<td>
+		<label for="meet-20"
+			>#meets</label
+		>
+		<br /><span class="hint">screened, but @everyone can still make posts by hand</span>
+		<br /><a class="hint" href="https://p.test/forums/20.json">Open Evnt index</a>
+	</td>
+	<td>
+		<input
+			type="checkbox"
+			id="meet-20"
+			name="meet"
+			value="20"
+			checked
+		/>
+	</td>
+	<td>
+		<select
+			name="announce:20"
+			aria-label="Announce role for meets"
+		>
+			<option value="">None</option>
+			<option value="51" selected>
+						@Pings &amp; &lt;news&gt;
+					</option><option value="52" >
+						@Member
+					</option>
+		</select>
+	</td>
+	<td>
+		<select
+			name="review:20"
+			aria-label="Review channel for meets"
+		>
+			<option value="">None</option>
+			<option
+						value="30"
+						
+					>
+						#review
+					</option><option
+						value="31"
+						selected
+					>
+						#mod&#39;s &quot;desk&quot;
+					</option>
+		</select>
+	</td>
+</tr> <tr>
+	<td>
+		<label for="meet-21"
+			>#hidden &lt;one&gt;</label
+		>
+		<br /><span class="hint">hidden from @everyone</span>
+		
+	</td>
+	<td>
+		<input
+			type="checkbox"
+			id="meet-21"
+			name="meet"
+			value="21"
+			
+		/>
+	</td>
+	<td>
+		<select
+			name="announce:21"
+			aria-label="Announce role for hidden &lt;one&gt;"
+		>
+			<option value="">None</option>
+			<option value="51" >
+						@Pings &amp; &lt;news&gt;
+					</option><option value="52" >
+						@Member
+					</option>
+		</select>
+	</td>
+	<td>
+		<select
+			name="review:21"
+			aria-label="Review channel for hidden &lt;one&gt;"
+		>
+			<option value="">None</option>
+			<option
+						value="30"
+						
+					>
+						#review
+					</option><option
+						value="31"
+						
+					>
+						#mod&#39;s &quot;desk&quot;
+					</option>
+		</select>
+	</td>
+</tr> <tr>
+	<td>
+		<label for="meet-22"
+			>#no reaction</label
+		>
+		<br /><span class="hint">no default reaction</span>
+		<br /><a class="hint" href="https://p.test/forums/22.json">Open Evnt index</a>
+	</td>
+	<td>
+		<input
+			type="checkbox"
+			id="meet-22"
+			name="meet"
+			value="22"
+			checked
+		/>
+	</td>
+	<td>
+		<select
+			name="announce:22"
+			aria-label="Announce role for no reaction"
+		>
+			<option value="">None</option>
+			<option value="51" >
+						@Pings &amp; &lt;news&gt;
+					</option><option value="52" >
+						@Member
+					</option>
+		</select>
+	</td>
+	<td>
+		<select
+			name="review:22"
+			aria-label="Review channel for no reaction"
+		>
+			<option value="">None</option>
+			<option
+						value="30"
+						
+					>
+						#review
+					</option><option
+						value="31"
+						
+					>
+						#mod&#39;s &quot;desk&quot;
+					</option>
+		</select>
+	</td>
+</tr> <tr>
+	<td>
+		<label for="meet-23"
+			>23</label
+		>
+		<br /><span class="hint">deleted</span>
+		
+	</td>
+	<td>
+		<input
+			type="checkbox"
+			id="meet-23"
+			name="meet"
+			value="23"
+			checked
+		/>
+	</td>
+	<td>
+		<select
+			name="announce:23"
+			aria-label="Announce role for 23"
+		>
+			<option value="">None</option>
+			<option value="51" >
+						@Pings &amp; &lt;news&gt;
+					</option><option value="52" >
+						@Member
+					</option>
+		</select>
+	</td>
+	<td>
+		<select
+			name="review:23"
+			aria-label="Review channel for 23"
+		>
+			<option value="">None</option>
+			<option
+						value="30"
+						selected
+					>
+						#review
+					</option><option
+						value="31"
+						
+					>
+						#mod&#39;s &quot;desk&quot;
+					</option>
+		</select>
+	</td>
+</tr>
+							</tbody>
+						</table>
+				<button>Save</button>
+			</form>
+	</html> 

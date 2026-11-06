@@ -1,0 +1,95 @@
+<!doctype html>
+	<html lang="en">
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="referrer" content="no-referrer" />
+		<title>ProtoCal</title>
+		<style>
+			:root {
+				color-scheme: dark;
+				accent-color: #b48cff;
+			}
+			body {
+				background: #000;
+				color: #ddd;
+				font:
+					17px/1.5 system-ui,
+					sans-serif;
+				margin: 0;
+				padding: 2rem 1.5rem;
+			}
+			a {
+				color: #b48cff;
+			}
+			h1 {
+				font-size: 1.4rem;
+				margin: 0 0 1.5rem;
+			}
+			h2 {
+				font-size: 1.1rem;
+				margin: 1.5rem 0 0.25rem;
+			}
+			.hint {
+				color: #888;
+				font-size: 0.85em;
+			}
+			table {
+				border-collapse: collapse;
+				margin: 0.75rem 0 1.25rem;
+			}
+			th {
+				color: #888;
+				font-weight: normal;
+				text-align: left;
+			}
+			th,
+			td {
+				padding: 0.35rem 1.25rem 0.35rem 0;
+				vertical-align: top;
+			}
+			select,
+			button {
+				font: inherit;
+				color: inherit;
+				background: #111;
+				border: 1px solid #333;
+				border-radius: 6px;
+				padding: 0.3rem 0.5rem;
+			}
+			button {
+				background: #b48cff;
+				color: #000;
+				border: 0;
+				padding: 0.4rem 1.2rem;
+				cursor: pointer;
+			}
+		</style>
+		<p id="status">Saving…</p>
+<p><a id="back" hidden>Back to the post</a></p>
+<script>
+	const fragment = new URLSearchParams(location.hash.slice(1));
+	history.replaceState(null, "", location.pathname);
+	const status = document.getElementById("status");
+	const back = document.getElementById("back");
+	fetch(location.pathname, {
+		method: "POST",
+		headers: { "content-type": "application/json" },
+		body: JSON.stringify({
+			state: fragment.get("state"),
+			cancelled: fragment.get("cancelled") === "true",
+			event: fragment.get("event"),
+		}),
+	})
+		.then((response) => response.json())
+		.then((answer) => {
+			status.textContent = answer.message;
+			if (answer.threadUrl) {
+				back.href = answer.threadUrl;
+				back.hidden = false;
+			}
+		})
+		.catch(() => {
+			status.textContent = "ProtoCal could not be reached, so nothing was saved.";
+		});
+</script>
+	</html> 

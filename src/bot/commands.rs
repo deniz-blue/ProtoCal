@@ -1,0 +1,177 @@
+use twilight_interactions::command::{CommandInputData, CommandModel, CreateCommand};
+use twilight_model::{
+    application::{command::Command, interaction::application_command::CommandData},
+    guild::Permissions,
+    id::{Id, marker::ChannelMarker},
+};
+
+use super::{
+    Bot, ConfigGrant,
+    access::interaction_has_permission,
+    guild_config::may_configure_guild,
+    meet_form::offer_new_meet_form,
+    meet_lifecycle::{MeetStart, start_meet},
+};
+use crate::{
+    components::{link_button, row},
+    discord::answer::{Answer, Reply},
+};
+
+#[derive(CommandModel, CreateCommand)]
+#[command(
+    name = "config",
+    desc = "Open this server's ProtoCal settings",
+    default_permissions = "manage_guild",
+    contexts = "guild"
+)]
+pub struct OpenConfig;
+
+fn manage_guild() -> Permissions {
+    Permissions::MANAGE_GUILD
+}
+
+#[derive(CommandModel, CreateCommand)]
+#[command(name = "event", desc = "Meets", contexts = "guild")]
+pub enum EventCommand {
+    #[command(name = "new")]
+    New(PostMeet),
+    #[command(name = "track")]
+    Track(TrackPost),
+}
+
+#[derive(CommandModel, CreateCommand)]
+#[command(name = "new", desc = "Post a meet")]
+pub struct PostMeet {
+    #[command(
+        desc = "Where to post it; without it you pick from the forums you can post in",
+        channel_types = "guild_forum"
+    )]
+    forum: Option<Id<ChannelMarker>>,
+}
+
+#[derive(CommandModel, CreateCommand)]
+#[command(name = "track", desc = "Make this post, made by hand, a meet")]
+pub struct TrackPost;
+
+#[derive(CommandModel, CreateCommand)]
+#[command(name = "mycalendar", desc = "Link to the meets you joined", contexts = "guild bot_dm")]
+pub struct MyCalendar {
+    #[command(rename = "new", desc = "Replace your link")]
+    replace: Option<bool>,
+}
+
+pub fn all_commands() -> Vec<Command> {
+    vec![
+        OpenConfig::create_command().into(),
+        EventCommand::create_command().into(),
+        MyCalendar::create_command().into(),
+    ]
+}
+
+pub async fn run_command(bot: &Bot, answer: &Answer<'_>, data: &CommandData) -> anyhow::Result<()> {
+    let input = CommandInputData::from(data.clone());
+    match data.name.as_str() {
+        "config" => open_config(bot, answer).await,
+        "event" => match EventCommand::from_interaction(input)? {
+            EventCommand::New(PostMeet { forum }) => offer_new_meet_form(bot, answer, forum).await,
+            EventCommand::Track(TrackPost) => track_post(bot, answer).await,
+        },
+        "mycalendar" => open_calendar(bot, answer, MyCalendar::from_interaction(input)?).await,
+        _ => answer.reply_privately(Reply::text("Command not found. Please report this.")).await,
+    }
+}
+
+async fn open_config(bot: &Bot, answer: &Answer<'_>) -> anyhow::Result<()> {
+    let interaction = answer.interaction;
+    let permissions = interaction.member.as_ref().and_then(|member| member.permissions);
+    let (true, Some(guild_id), Some(user_id)) = (may_configure_guild(permissions), interaction.guild_id, interaction.author_id())
+    else {
+        return answer
+            .reply_privately(Reply::text("Only people who can manage this server can change its settings."))
+            .await;
+    };
+    let token = bot.config_grants.grant(ConfigGrant { guild_id, user_id });
+    let settings = link_button("Settings", bot.links.config_page_url(&token));
+    let reply = Reply {
+        content: "-# The link works for an hour, and only you have it.".to_owned(),
+        components: vec![row(vec![settings])],
+    };
+    answer.reply_privately(reply).await
+}
+
+async fn open_calendar(bot: &Bot, answer: &Answer<'_>, options: MyCalendar) -> anyhow::Result<()> {
+    let Some(user_id) = answer.interaction.author_id() else {
+        return Ok(());
+    };
+    let link = bot.calendar_link_of(user_id, options.replace.unwrap_or(false))?;
+    let index_url = bot.links.calendar_index_url(&link.token);
+    let open = link_button("Open", bot.links.index_view_url(&index_url));
+    answer.reply_privately(Reply { content: String::new(), components: vec![row(vec![open])] }).await
+}
+
+async fn track_post(bot: &Bot, answer: &Answer<'_>) -> anyhow::Result<()> {
+    answer.defer_privately().await?;
+    let message = track_post_outcome(bot, answer).await?;
+    answer.edit_reply(Reply::text(message)).await
+}
+
+async fn track_post_outcome(bot: &Bot, answer: &Answer<'_>) -> anyhow::Result<&'static str> {
+    let interaction = answer.interaction;
+    let channel_id = interaction.channel.as_ref().map(|channel| channel.id);
+    let thread = match channel_id {
+        Some(channel_id) => bot.channel(channel_id).await.filter(|channel| channel.is_thread()),
+        None => None,
+    };
+    let Some(thread) = thread else {
+        return Ok("Run this inside the post.");
+    };
+    let is_staff = interaction_has_permission(interaction, Permissions::MANAGE_THREADS);
+    let forum = match thread.parent_id {
+        Some(parent_id) => bot.db.meet_forum_of(parent_id)?,
+        None => None,
+    };
+    if forum.is_some_and(|forum| forum.is_screened()) && !is_staff {
+        return Ok("Moderators check every meet in this forum, so only staff can do this.");
+    }
+    if thread.owner_id != interaction.author_id() && !is_staff {
+        return Ok("Only the person who posted it or staff can do this.");
+    }
+    if bot.db.meet_of_thread(thread.id)?.is_some() {
+        return Ok("This post is a meet already.");
+    }
+    Ok(match start_meet(bot, &thread, None).await? {
+        MeetStart::Started => "This post is a meet now. Everyone who already reacted got the role.",
+        MeetStart::NoAttendReaction => {
+            "This forum has no default reaction to attend with. Staff can set one in the forum's settings."
+        }
+        MeetStart::NotAMeetForum => "This post is not in a meet forum.",
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::{Value, json};
+
+    use super::all_commands;
+
+    #[test]
+    fn commands_match_what_the_typescript_published() {
+        let commands: Vec<Value> = all_commands().iter().map(|command| serde_json::to_value(command).unwrap()).collect();
+        let [config, event, calendar] = commands.as_slice() else {
+            panic!("three commands");
+        };
+        assert_eq!(config["name"], "config");
+        assert_eq!(config["default_member_permissions"], "32");
+        assert_eq!(config["contexts"], json!([0]));
+        assert_eq!(event["contexts"], json!([0]));
+        let forum = &event["options"][0]["options"][0];
+        assert_eq!(event["options"][0]["name"], "new");
+        assert_eq!(forum["name"], "forum");
+        assert_eq!(forum["channel_types"], json!([15]));
+        assert_ne!(forum["required"], json!(true));
+        assert_eq!(event["options"][1]["name"], "track");
+        assert_eq!(calendar["contexts"], json!([0, 1]));
+        assert_eq!(calendar["options"][0]["name"], "new");
+        assert_eq!(calendar["options"][0]["type"], 5);
+    }
+}
