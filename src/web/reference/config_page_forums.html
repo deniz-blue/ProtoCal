@@ -63,7 +63,8 @@ h2 {
 	color: var(--muted);
 	margin: 0 16px;
 }
-.forum {
+.forum,
+.surface {
 	background: var(--surface);
 	border-radius: 14px;
 	margin-bottom: 12px;
@@ -119,7 +120,8 @@ a.row {
 	grid-template-rows: 1fr;
 	visibility: visible;
 }
-.details .row {
+.details .row,
+.surface .row + .row {
 	background-image: linear-gradient(var(--line), var(--line));
 	background-position: 16px 0;
 	background-size: 100% 1px;
@@ -250,6 +252,22 @@ form:not(.saved) .when-saved,
 }
 .return .button:not([href]) {
 	visibility: hidden;
+}
+.lede {
+	margin: -16px 16px 24px;
+}
+.home h2 {
+	margin-top: 32px;
+}
+.external {
+	width: 12px;
+	height: 12px;
+	margin-left: 4px;
+	vertical-align: -1px;
+}
+footer {
+	margin: 32px 16px;
+	font-size: 14px;
 }
 </style>
 <h1>haj &amp; &lt;house&gt;</h1>

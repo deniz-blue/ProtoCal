@@ -6,6 +6,7 @@ mod cors;
 mod edit_return_page;
 mod edit_routes;
 mod font;
+mod home_page;
 mod open_evnt_routes;
 mod page;
 #[cfg(test)]
@@ -33,6 +34,7 @@ use crate::bot::Bot;
 
 fn routes(bot: Arc<Bot>) -> Router {
     Router::new()
+        .route("/", get(home_page::show_home_page))
         .route("/events/{file}", get(open_evnt_routes::event_document))
         .route("/forums/{file}", get(open_evnt_routes::forum_index))
         .route("/calendars/{file}", get(open_evnt_routes::calendar_index))

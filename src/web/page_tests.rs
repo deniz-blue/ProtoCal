@@ -3,6 +3,7 @@ use twilight_model::{channel::ChannelType, guild::Permissions, id::Id};
 use super::{
     config_page::{ConfigPageOptions, config_page},
     edit_return_page::edit_return_page,
+    home_page::home_page,
 };
 use crate::{
     bot::guild_config::ForumConfig,
@@ -92,4 +93,12 @@ fn config_page_without_roles_has_no_announce_role_picker() {
     let forums = [forum_config(20, Some("meets"))];
     let options = ConfigPageOptions { guild_name: "g", forums: &forums, roles: &[], review_channels: &[], saved: false };
     assert!(!config_page(&test_links(), &options).contains("Announce role"));
+}
+
+#[test]
+fn home_page_invites_the_bot_with_its_application_id() {
+    let page = home_page(Id::new(42));
+    assert!(page.contains(
+        "href=\"https://discord.com/oauth2/authorize?client_id=42&amp;scope=bot+applications.commands&amp;permissions="
+    ));
 }
