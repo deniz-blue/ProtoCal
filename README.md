@@ -20,7 +20,7 @@ While an event runs:
 
 - Changing its status, date or place posts a note that pings the event role. Other changes, a rename included, post "The details were updated." without a ping.
 - Renaming the post renames the event role.
-- A message that pings the event role is pinned. If it replies to a poll or a bot message, that message is pinned as well. A reply that is only the ping pins the message it replies to instead.
+- A message that pings the event role is pinned. If it replies to a poll or a bot message, that message is pinned as well.
 - An event ends when its post is locked or deleted, or a day after its last date. Ending deletes the role and removes the event from the feeds. The date check runs at start and every 15 minutes.
 
 ### Posting an event
