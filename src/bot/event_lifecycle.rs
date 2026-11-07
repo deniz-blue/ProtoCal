@@ -13,31 +13,31 @@ use twilight_model::{
 
 use super::{
     Bot,
-    meet_roles::{RoleChange, change_meet_role, create_meet_role},
+    event_roles::{RoleChange, change_event_role, create_event_role},
 };
 use crate::{
     discord::cache::CachedChannel,
-    meet::{
+    event::{
         attend_reaction::ReactionEmoji,
-        dates::meet_is_over_at,
-        document::new_meet_document,
-        post::{MESSAGE_MAX, meet_post_buttons, meet_post_content, thread_name_of},
+        dates::event_is_over_at,
+        document::new_event_document,
+        post::{MESSAGE_MAX, event_post_buttons, event_post_content, thread_name_of},
     },
-    records::Meet,
+    records::EventPost,
     time::now_unix_seconds,
 };
 
-pub use super::meet_lifecycle_edit::{rename_meet_of_thread, save_meet_document};
+pub use super::event_lifecycle_edit::{rename_event_of_thread, save_event_document};
 
-pub struct MeetAsPosted {
+pub struct EventAsPosted {
     pub organizers: Vec<Id<UserMarker>>,
     pub document: Value,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum MeetStart {
+pub enum EventStart {
     Started,
-    NotAMeetForum,
+    NotAnEventForum,
     NoAttendReaction,
 }
 
@@ -57,15 +57,15 @@ async fn earlier_attendees(bot: &Bot, thread: &CachedChannel, emoji: &RequestRea
     users.into_iter().filter(|user| !user.bot).map(|user| user.id).collect()
 }
 
-pub async fn start_meet(bot: &Bot, thread: &CachedChannel, posted: Option<MeetAsPosted>) -> anyhow::Result<MeetStart> {
+pub async fn start_event(bot: &Bot, thread: &CachedChannel, posted: Option<EventAsPosted>) -> anyhow::Result<EventStart> {
     let Some(forum_id) = thread.parent_id else {
-        return Ok(MeetStart::NotAMeetForum);
+        return Ok(EventStart::NotAnEventForum);
     };
     let Some(parent) = bot.channel(forum_id).await.filter(|parent| parent.kind == ChannelType::GuildForum) else {
-        return Ok(MeetStart::NotAMeetForum);
+        return Ok(EventStart::NotAnEventForum);
     };
-    let Some(forum) = bot.db.meet_forum_of(forum_id)? else {
-        return Ok(MeetStart::NotAMeetForum);
+    let Some(forum) = bot.db.event_forum_of(forum_id)? else {
+        return Ok(EventStart::NotAnEventForum);
     };
     let attend = parent.default_reaction.as_ref();
     let (Some(attend_emoji), Some(attend_reaction)) = (attend, attend.and_then(ReactionEmoji::key)) else {
@@ -73,14 +73,14 @@ pub async fn start_meet(bot: &Bot, thread: &CachedChannel, posted: Option<MeetAs
             .create_message(thread.id)
             .content("-# ❌ This forum has no default reaction, so there is nothing to react with to attend. Staff can set one in the forum's settings.")
             .await?;
-        return Ok(MeetStart::NoAttendReaction);
+        return Ok(EventStart::NoAttendReaction);
     };
-    let posted = posted.unwrap_or_else(|| MeetAsPosted {
+    let posted = posted.unwrap_or_else(|| EventAsPosted {
         organizers: thread.owner_id.into_iter().collect(),
-        document: new_meet_document(&bot.links.meet_document_url(thread.id), &thread.name),
+        document: new_event_document(&bot.links.event_document_url(thread.id), &thread.name),
     });
-    let role_id = create_meet_role(bot, thread).await?;
-    bot.db.save_meet(&Meet {
+    let role_id = create_event_role(bot, thread).await?;
+    bot.db.save_event(&EventPost {
         thread_id: thread.id,
         guild_id: thread.guild_id,
         forum_id: forum.forum_id,
@@ -90,7 +90,7 @@ pub async fn start_meet(bot: &Bot, thread: &CachedChannel, posted: Option<MeetAs
         document: posted.document,
         updated_at: now_unix_seconds(),
     })?;
-    tracing::info!(thread = %thread.id, role = %role_id, "Meet started");
+    tracing::info!(thread = %thread.id, role = %role_id, "Event started");
 
     let mut attendees: BTreeSet<Id<UserMarker>> = posted.organizers.into_iter().collect();
     if bot.message(thread.id, thread.id.cast()).await.is_some()
@@ -101,7 +101,7 @@ pub async fn start_meet(bot: &Bot, thread: &CachedChannel, posted: Option<MeetAs
         bot.http.create_pin(thread.id, thread.id.cast()).await?;
     }
     for attendee in attendees {
-        change_meet_role(bot, thread, RoleChange::Add, attendee, role_id).await?;
+        change_event_role(bot, thread, RoleChange::Add, attendee, role_id).await?;
     }
 
     let announced: Vec<_> = forum.announce_role_id.into_iter().collect();
@@ -117,16 +117,16 @@ pub async fn start_meet(bot: &Bot, thread: &CachedChannel, posted: Option<MeetAs
         .content(&lines.join("\n"))
         .allowed_mentions(Some(&mentions))
         .await?;
-    Ok(MeetStart::Started)
+    Ok(EventStart::Started)
 }
 
-pub async fn post_new_meet(
+pub async fn post_new_event(
     bot: &Bot,
     forum: &CachedChannel,
     organizers: Vec<Id<UserMarker>>,
     document: &Value,
 ) -> anyhow::Result<Id<ChannelMarker>> {
-    let content = meet_post_content(document, &organizers, now_unix_seconds(), MESSAGE_MAX);
+    let content = event_post_content(document, &organizers, now_unix_seconds(), MESSAGE_MAX);
     let mentions = AllowedMentions::default();
     let posted = bot
         .http
@@ -140,35 +140,35 @@ pub async fn post_new_meet(
     let thread = CachedChannel::of(forum.guild_id, &posted.channel);
     bot.cache.insert_channel(thread.clone());
     let viewable = bot.everyone_can_view_forum(forum.guild_id, forum.id).await;
-    let buttons = [meet_post_buttons(&bot.links, thread.id, viewable)];
+    let buttons = [event_post_buttons(&bot.links, thread.id, viewable)];
     bot.http
         .update_message(thread.id, posted.message.id)
         .components(Some(&buttons))
         .await?;
     let mut document = document.clone();
-    document["id"] = Value::String(bot.links.meet_document_url(thread.id));
-    start_meet(bot, &thread, Some(MeetAsPosted { organizers, document })).await?;
+    document["id"] = Value::String(bot.links.event_document_url(thread.id));
+    start_event(bot, &thread, Some(EventAsPosted { organizers, document })).await?;
     Ok(thread.id)
 }
 
-pub async fn end_meet(bot: &Bot, guild_id: Id<GuildMarker>, thread_id: Id<ChannelMarker>) -> anyhow::Result<()> {
-    let Some(meet) = bot.db.meet_of_thread(thread_id)? else {
+pub async fn end_event(bot: &Bot, guild_id: Id<GuildMarker>, thread_id: Id<ChannelMarker>) -> anyhow::Result<()> {
+    let Some(event) = bot.db.event_of_thread(thread_id)? else {
         return Ok(());
     };
-    let reason = format!("Meet {thread_id} ended");
-    if let Err(error) = bot.http.delete_role(guild_id, meet.role_id).reason(&reason).await {
-        tracing::warn!(thread = %thread_id, ?error, "Meet role was not deleted");
+    let reason = format!("Event {thread_id} ended");
+    if let Err(error) = bot.http.delete_role(guild_id, event.role_id).reason(&reason).await {
+        tracing::warn!(thread = %thread_id, ?error, "Event role was not deleted");
     }
-    bot.db.forget_meet(thread_id)?;
-    tracing::info!(thread = %thread_id, "Meet ended");
+    bot.db.forget_event(thread_id)?;
+    tracing::info!(thread = %thread_id, "Event ended");
     Ok(())
 }
 
-pub async fn end_meets_that_are_over(bot: &Bot, now_unix_seconds: i64) -> anyhow::Result<()> {
-    for meet in bot.db.all_meets()? {
-        let over = meet_is_over_at(&meet.document).is_some_and(|over_at| over_at <= now_unix_seconds);
-        if over && bot.cache.guild(meet.guild_id).is_some() {
-            end_meet(bot, meet.guild_id, meet.thread_id).await?;
+pub async fn end_events_that_are_over(bot: &Bot, now_unix_seconds: i64) -> anyhow::Result<()> {
+    for event in bot.db.all_events()? {
+        let over = event_is_over_at(&event.document).is_some_and(|over_at| over_at <= now_unix_seconds);
+        if over && bot.cache.guild(event.guild_id).is_some() {
+            end_event(bot, event.guild_id, event.thread_id).await?;
         }
     }
     Ok(())

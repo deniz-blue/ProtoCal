@@ -14,13 +14,13 @@ use crate::{
         cache::CachedChannel,
         permissions::{MemberRoles, everyone_permissions_in, member_permissions_in},
     },
-    records::MeetForum,
+    records::EventForum,
 };
 
 #[derive(Clone, Debug)]
-pub struct OpenMeetForum {
+pub struct OpenEventForum {
     pub channel: CachedChannel,
-    pub settings: MeetForum,
+    pub settings: EventForum,
 }
 
 pub fn member_roles_of_interaction(interaction: &Interaction) -> Option<MemberRoles> {
@@ -68,15 +68,15 @@ impl Bot {
         }
     }
 
-    pub fn is_meet_moderator(&self, member: &MemberRoles, forum: &CachedChannel) -> bool {
+    pub fn is_event_moderator(&self, member: &MemberRoles, forum: &CachedChannel) -> bool {
         self.permissions_in(forum, member).contains(Permissions::MANAGE_THREADS)
     }
 
-    pub fn meet_goes_to_review(&self, member: &MemberRoles, forum: &OpenMeetForum) -> bool {
-        forum.settings.is_screened() && !self.is_meet_moderator(member, &forum.channel)
+    pub fn event_goes_to_review(&self, member: &MemberRoles, forum: &OpenEventForum) -> bool {
+        forum.settings.is_screened() && !self.is_event_moderator(member, &forum.channel)
     }
 
-    fn member_may_post_meet_in(&self, member: &MemberRoles, forum: &OpenMeetForum) -> bool {
+    fn member_may_post_event_in(&self, member: &MemberRoles, forum: &OpenEventForum) -> bool {
         let needed = if forum.settings.is_screened() {
             Permissions::VIEW_CHANNEL
         } else {
@@ -85,27 +85,27 @@ impl Bot {
         self.permissions_in(&forum.channel, member).contains(needed)
     }
 
-    pub async fn meet_forums_open_to(&self, guild_id: Id<GuildMarker>, member: &MemberRoles) -> anyhow::Result<Vec<OpenMeetForum>> {
+    pub async fn event_forums_open_to(&self, guild_id: Id<GuildMarker>, member: &MemberRoles) -> anyhow::Result<Vec<OpenEventForum>> {
         let mut forums = Vec::new();
-        for settings in self.db.meet_forums_of_guild(guild_id)? {
+        for settings in self.db.event_forums_of_guild(guild_id)? {
             let Some(channel) = self.forum_of_guild(guild_id, settings.forum_id).await else {
                 continue;
             };
-            let forum = OpenMeetForum { channel, settings };
-            if self.member_may_post_meet_in(member, &forum) {
+            let forum = OpenEventForum { channel, settings };
+            if self.member_may_post_event_in(member, &forum) {
                 forums.push(forum);
             }
         }
         Ok(forums)
     }
 
-    pub async fn meet_forum_open_to(
+    pub async fn event_forum_open_to(
         &self,
         guild_id: Id<GuildMarker>,
         member: &MemberRoles,
         forum_id: Id<ChannelMarker>,
-    ) -> anyhow::Result<Option<OpenMeetForum>> {
-        let forums = self.meet_forums_open_to(guild_id, member).await?;
+    ) -> anyhow::Result<Option<OpenEventForum>> {
+        let forums = self.event_forums_open_to(guild_id, member).await?;
         Ok(forums.into_iter().find(|forum| forum.channel.id == forum_id))
     }
 }

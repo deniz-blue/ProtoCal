@@ -1,23 +1,29 @@
 mod calendar_links;
-mod meet_forums;
-mod meet_requests;
-mod meets;
+mod event_forums;
+mod event_requests;
+mod events;
 
 use std::{fs, path::Path, str::FromStr, sync::Mutex};
 
 use anyhow::Context as _;
 use rusqlite::{Connection, Row, types::Type};
 
-pub use meet_requests::{RequestEditor, RequestMatch};
+pub use event_requests::{RequestEditor, RequestMatch};
+
+const RENAMED_TABLES: [(&str, &str); 3] = [
+    ("meets", "events"),
+    ("meet_forums", "event_forums"),
+    ("meet_requests", "event_requests"),
+];
 
 const SCHEMA: &str = "
-    CREATE TABLE IF NOT EXISTS `meet_forums` (
+    CREATE TABLE IF NOT EXISTS `event_forums` (
         `forum_id` text PRIMARY KEY NOT NULL,
         `guild_id` text NOT NULL,
         `announce_role_id` text,
         `review_channel_id` text
     );
-    CREATE TABLE IF NOT EXISTS `meets` (
+    CREATE TABLE IF NOT EXISTS `events` (
         `thread_id` text PRIMARY KEY NOT NULL,
         `guild_id` text NOT NULL,
         `forum_id` text NOT NULL,
@@ -33,7 +39,7 @@ const SCHEMA: &str = "
         `created_at` integer NOT NULL
     );
     CREATE UNIQUE INDEX IF NOT EXISTS `calendar_links_token_unique` ON `calendar_links` (`token`);
-    CREATE TABLE IF NOT EXISTS `meet_requests` (
+    CREATE TABLE IF NOT EXISTS `event_requests` (
         `id` text PRIMARY KEY NOT NULL,
         `guild_id` text NOT NULL,
         `forum_id` text NOT NULL,
@@ -68,14 +74,15 @@ impl Database {
     }
 
     pub fn of_connection(connection: Connection) -> anyhow::Result<Self> {
+        rename_tables_to_event_names(&connection)?;
         connection.execute_batch(SCHEMA)?;
         let has_review_channel: bool = connection.query_row(
-            "SELECT count(*) > 0 FROM pragma_table_info('meet_forums') WHERE name = 'review_channel_id'",
+            "SELECT count(*) > 0 FROM pragma_table_info('event_forums') WHERE name = 'review_channel_id'",
             [],
             |row| row.get(0),
         )?;
         if !has_review_channel {
-            connection.execute_batch("ALTER TABLE `meet_forums` ADD `review_channel_id` text")?;
+            connection.execute_batch("ALTER TABLE `event_forums` ADD `review_channel_id` text")?;
         }
         Ok(Self {
             connection: Mutex::new(connection),
@@ -91,6 +98,23 @@ impl Database {
         let connection = self.connection.lock().expect("database lock poisoned");
         Ok(query(&connection)?)
     }
+}
+
+fn rename_tables_to_event_names(connection: &Connection) -> rusqlite::Result<()> {
+    for (old, new) in RENAMED_TABLES {
+        if table_exists(connection, old)? && !table_exists(connection, new)? {
+            connection.execute_batch(&format!("ALTER TABLE `{old}` RENAME TO `{new}`"))?;
+        }
+    }
+    Ok(())
+}
+
+fn table_exists(connection: &Connection, name: &str) -> rusqlite::Result<bool> {
+    connection.query_row(
+        "SELECT count(*) > 0 FROM sqlite_master WHERE type = 'table' AND name = ?1",
+        [name],
+        |row| row.get(0),
+    )
 }
 
 fn conversion_failure(index: usize, error: impl std::error::Error + Send + Sync + 'static) -> rusqlite::Error {

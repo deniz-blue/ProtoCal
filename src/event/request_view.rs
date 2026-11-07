@@ -6,25 +6,26 @@ use twilight_model::{
     },
 };
 
-use super::post::{MESSAGE_MAX, MeetFormTarget, meet_post_content};
+use super::post::{MESSAGE_MAX, EventFormTarget, event_post_content};
 use crate::{
     components::{button, row},
-    records::{MeetRequest, RequestState},
+    records::{EventRequest, RequestState},
     text::utf16_length,
 };
 
-const MEET_REQUEST_BUTTON: &str = "meet-request";
-const EXPIRED: &str = "⌛ Nobody got to it before the meet would have been over.";
+// Buttons already posted to Discord carry this id.
+const EVENT_REQUEST_BUTTON: &str = "meet-request";
+const EXPIRED: &str = "⌛ Nobody got to it before the event would have been over.";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum MeetRequestAction {
+pub enum EventRequestAction {
     Post,
     Decline,
     DeclineReason,
     Withdraw,
 }
 
-impl MeetRequestAction {
+impl EventRequestAction {
     fn as_str(self) -> &'static str {
         match self {
             Self::Post => "post",
@@ -41,22 +42,22 @@ impl MeetRequestAction {
     }
 }
 
-pub fn meet_request_custom_id(action: MeetRequestAction, id: &str) -> String {
-    format!("{MEET_REQUEST_BUTTON}:{}:{id}", action.as_str())
+pub fn event_request_custom_id(action: EventRequestAction, id: &str) -> String {
+    format!("{EVENT_REQUEST_BUTTON}:{}:{id}", action.as_str())
 }
 
-pub fn meet_request_action_of(custom_id: &str) -> Option<(MeetRequestAction, String)> {
+pub fn event_request_action_of(custom_id: &str) -> Option<(EventRequestAction, String)> {
     let mut parts = custom_id.split(':');
-    if parts.next()? != MEET_REQUEST_BUTTON {
+    if parts.next()? != EVENT_REQUEST_BUTTON {
         return None;
     }
-    let action = MeetRequestAction::of_str(parts.next()?)?;
+    let action = EventRequestAction::of_str(parts.next()?)?;
     let id = parts.next().filter(|id| !id.is_empty())?;
     Some((action, id.to_owned()))
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum MeetRequestOutcome {
+pub enum EventRequestOutcome {
     Open,
     Posted {
         by: Id<UserMarker>,
@@ -72,23 +73,23 @@ pub struct MessageView {
     pub components: Vec<Component>,
 }
 
-fn edit_button(request: &MeetRequest, label: &str) -> Component {
-    let target = MeetFormTarget::Request(request.id.clone());
+fn edit_button(request: &EventRequest, label: &str) -> Component {
+    let target = EventFormTarget::Request(request.id.clone());
     button(target.custom_id(), label, ButtonStyle::Secondary)
 }
 
-fn with_preview(request: &MeetRequest, head: &[String], buttons: Vec<Component>) -> MessageView {
+fn with_preview(request: &EventRequest, head: &[String], buttons: Vec<Component>) -> MessageView {
     let lines: Vec<&str> = head.iter().map(String::as_str).filter(|line| !line.is_empty()).collect();
     let top = lines.join("\n");
     let room = MESSAGE_MAX.saturating_sub(utf16_length(&top) + 2);
-    let preview = meet_post_content(&request.document, &[request.host_id], request.updated_at, room);
+    let preview = event_post_content(&request.document, &[request.host_id], request.updated_at, room);
     MessageView {
         content: format!("{top}\n\n{preview}"),
         components: if buttons.is_empty() { Vec::new() } else { vec![row(buttons)] },
     }
 }
 
-fn reason_of(request: &MeetRequest) -> String {
+fn reason_of(request: &EventRequest) -> String {
     request
         .decline_reason
         .as_ref()
@@ -96,29 +97,29 @@ fn reason_of(request: &MeetRequest) -> String {
         .map_or_else(String::new, |reason| format!(": {reason}"))
 }
 
-pub fn meet_request_card(request: &MeetRequest, outcome: MeetRequestOutcome) -> MessageView {
+pub fn event_request_card(request: &EventRequest, outcome: EventRequestOutcome) -> MessageView {
     let mut head = vec![
         format!("<@{}> wants to post this in <#{}>", request.host_id, request.forum_id),
         if request.host_edited { "-# Edited by the host".to_owned() } else { String::new() },
-        if outcome == MeetRequestOutcome::Open && request.host_dm.is_none() {
+        if outcome == EventRequestOutcome::Open && request.host_dm.is_none() {
             "-# Their DMs are closed, so I cannot tell them what happens.".to_owned()
         } else {
             String::new()
         },
     ];
     let status = match outcome {
-        MeetRequestOutcome::Posted { by, thread_id } => format!("✅ Posted by <@{by}>: <#{thread_id}>"),
-        MeetRequestOutcome::Withdrawn => "↩️ Withdrawn by the host".to_owned(),
-        MeetRequestOutcome::Expired => EXPIRED.to_owned(),
-        MeetRequestOutcome::Open if request.state == RequestState::Declined => {
+        EventRequestOutcome::Posted { by, thread_id } => format!("✅ Posted by <@{by}>: <#{thread_id}>"),
+        EventRequestOutcome::Withdrawn => "↩️ Withdrawn by the host".to_owned(),
+        EventRequestOutcome::Expired => EXPIRED.to_owned(),
+        EventRequestOutcome::Open if request.state == RequestState::Declined => {
             let by = request.handled_by.map_or_else(String::new, |id| id.to_string());
             format!("❌ Declined by <@{by}>{}", reason_of(request))
         }
-        MeetRequestOutcome::Open => {
+        EventRequestOutcome::Open => {
             let buttons = vec![
-                button(meet_request_custom_id(MeetRequestAction::Post, &request.id), "Post", ButtonStyle::Primary),
+                button(event_request_custom_id(EventRequestAction::Post, &request.id), "Post", ButtonStyle::Primary),
                 edit_button(request, "Edit"),
-                button(meet_request_custom_id(MeetRequestAction::Decline, &request.id), "Decline", ButtonStyle::Danger),
+                button(event_request_custom_id(EventRequestAction::Decline, &request.id), "Decline", ButtonStyle::Danger),
             ];
             return with_preview(request, &head, buttons);
         }
@@ -127,22 +128,22 @@ pub fn meet_request_card(request: &MeetRequest, outcome: MeetRequestOutcome) -> 
     with_preview(request, &head, Vec::new())
 }
 
-pub fn meet_request_host_view(request: &MeetRequest, outcome: MeetRequestOutcome, guild_name: &str) -> MessageView {
+pub fn event_request_host_view(request: &EventRequest, outcome: EventRequestOutcome, guild_name: &str) -> MessageView {
     let moderators = format!("the moderators of <#{}> in **{guild_name}**", request.forum_id);
-    let withdraw = || button(meet_request_custom_id(MeetRequestAction::Withdraw, &request.id), "Withdraw", ButtonStyle::Secondary);
+    let withdraw = || button(event_request_custom_id(EventRequestAction::Withdraw, &request.id), "Withdraw", ButtonStyle::Secondary);
     match outcome {
-        MeetRequestOutcome::Posted { thread_id, .. } => {
+        EventRequestOutcome::Posted { thread_id, .. } => {
             let changes = if request.moderators_edited { ", with changes by the moderators" } else { "" };
             with_preview(request, &[format!("✅ Posted: <#{thread_id}>{changes}")], Vec::new())
         }
-        MeetRequestOutcome::Withdrawn => with_preview(request, &["↩️ You withdrew it.".to_owned()], Vec::new()),
-        MeetRequestOutcome::Expired => with_preview(request, &[EXPIRED.to_owned()], Vec::new()),
-        MeetRequestOutcome::Open if request.state == RequestState::Declined => with_preview(
+        EventRequestOutcome::Withdrawn => with_preview(request, &["↩️ You withdrew it.".to_owned()], Vec::new()),
+        EventRequestOutcome::Expired => with_preview(request, &[EXPIRED.to_owned()], Vec::new()),
+        EventRequestOutcome::Open if request.state == RequestState::Declined => with_preview(
             request,
             &[format!("❌ Declined by {moderators}{}", reason_of(request))],
             vec![edit_button(request, "Edit and send again"), withdraw()],
         ),
-        MeetRequestOutcome::Open => {
+        EventRequestOutcome::Open => {
             let closed_dms = if request.host_dm.is_some() {
                 String::new()
             } else {

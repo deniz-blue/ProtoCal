@@ -1,10 +1,10 @@
 use serde_json::{Value, json};
 
 use super::{
-    change_notice::{MeetChangeNotice, meet_change_notice},
-    dates::{meet_dates_as_discord, meet_is_over_at},
-    document::{MeetField, MeetFieldProblem, new_meet_document},
-    fields::{MeetFields, fields_of_meet_document, meet_document_of_fields},
+    change_notice::{EventChangeNotice, event_change_notice},
+    dates::{event_dates_as_discord, event_is_over_at},
+    document::{EventField, EventFieldProblem, new_event_document},
+    fields::{EventFields, event_document_of_fields, fields_of_event_document},
 };
 
 const ID: &str = "http://localhost:8660/events/1.evnt.json";
@@ -21,8 +21,8 @@ struct Changed<'a> {
     description: Option<&'a str>,
 }
 
-fn fields(changed: Changed) -> MeetFields {
-    MeetFields {
+fn fields(changed: Changed) -> EventFields {
+    EventFields {
         name: "Bar meet".to_owned(),
         start: changed.start.map(str::to_owned),
         end: changed.end.map(str::to_owned),
@@ -32,15 +32,15 @@ fn fields(changed: Changed) -> MeetFields {
 }
 
 fn document_on(changed: Changed, base: &Value) -> Value {
-    meet_document_of_fields(&fields(changed), base).unwrap()
+    event_document_of_fields(&fields(changed), base).unwrap()
 }
 
 fn document_of(changed: Changed) -> Value {
-    document_on(changed, &new_meet_document(ID, "Bar meet"))
+    document_on(changed, &new_event_document(ID, "Bar meet"))
 }
 
-fn problem_of(changed: Changed) -> MeetFieldProblem {
-    meet_document_of_fields(&fields(changed), &new_meet_document(ID, "Bar meet")).unwrap_err()
+fn problem_of(changed: Changed) -> EventFieldProblem {
+    event_document_of_fields(&fields(changed), &new_event_document(ID, "Bar meet")).unwrap_err()
 }
 
 #[test]
@@ -68,7 +68,7 @@ fn the_form_makes_a_valid_open_evnt_document() {
 
 #[test]
 fn dates_that_do_not_exist_or_an_end_before_the_start_are_refused_with_the_field() {
-    let start = Some(MeetField::Start);
+    let start = Some(EventField::Start);
     assert_eq!(problem_of(Changed { start: Some("2026-02-30"), ..Default::default() }).field, start);
     let backwards = Changed { start: Some("2026-12-05 18:00"), end: Some("2026-12-05 17:00"), ..Default::default() };
     assert_eq!(problem_of(backwards).field, start);
@@ -93,10 +93,10 @@ fn the_form_shows_what_the_document_holds_and_saving_it_unchanged_keeps_the_docu
         ],
         "components": [{ "$type": "directory.evnt.link#0", "url": "https://example.com" }],
     });
-    let shown = fields_of_meet_document(&from_an_app);
+    let shown = fields_of_event_document(&from_an_app);
     assert_eq!(
         shown,
-        MeetFields {
+        EventFields {
             name: "Bar meet".to_owned(),
             start: Some("2026-12-05 18:00".to_owned()),
             end: None,
@@ -104,7 +104,7 @@ fn the_form_shows_what_the_document_holds_and_saving_it_unchanged_keeps_the_docu
             description: None,
         }
     );
-    assert_eq!(meet_document_of_fields(&shown, &from_an_app).unwrap(), from_an_app);
+    assert_eq!(event_document_of_fields(&shown, &from_an_app).unwrap(), from_an_app);
 }
 
 #[test]
@@ -136,23 +136,23 @@ fn a_changed_start_keeps_the_other_dates_and_a_changed_place_keeps_the_venue_nam
 fn dates_read_in_discord_a_time_a_whole_day_several_days_a_month() {
     let at = unix("2026-12-05T16:00:00Z");
     let evening = document_of(Changed { start: Some("2026-12-05 18:00"), ..Default::default() });
-    assert_eq!(meet_dates_as_discord(&evening, true), Some(format!("<t:{at}:f> <t:{at}:R>")));
+    assert_eq!(event_dates_as_discord(&evening, true), Some(format!("<t:{at}:f> <t:{at}:R>")));
     let until_late = document_of(Changed { start: Some("2026-12-05 18:00"), end: Some("2026-12-05 23:00"), ..Default::default() });
     let late = unix("2026-12-05T21:00:00Z");
-    assert_eq!(meet_dates_as_discord(&until_late, true), Some(format!("<t:{at}:f> – <t:{late}:t> <t:{at}:R>")));
+    assert_eq!(event_dates_as_discord(&until_late, true), Some(format!("<t:{at}:f> – <t:{late}:t> <t:{at}:R>")));
     let weekend = document_of(Changed { start: Some("2026-12-05"), end: Some("2026-12-07"), ..Default::default() });
     assert_eq!(
-        meet_dates_as_discord(&weekend, false).as_deref(),
+        event_dates_as_discord(&weekend, false).as_deref(),
         Some("Sat, 5 December 2026 – Mon, 7 December 2026")
     );
     let month = document_of(Changed { start: Some("2026-12"), ..Default::default() });
-    assert_eq!(meet_dates_as_discord(&month, true).as_deref(), Some("December 2026"));
-    assert_eq!(meet_dates_as_discord(&document_of(Changed::default()), true), None);
+    assert_eq!(event_dates_as_discord(&month, true).as_deref(), Some("December 2026"));
+    assert_eq!(event_dates_as_discord(&document_of(Changed::default()), true), None);
 }
 
 #[test]
-fn a_meet_is_over_a_day_after_it_ends_or_after_its_start_when_it_has_no_end() {
-    let over = |changed| meet_is_over_at(&document_of(changed));
+fn an_event_is_over_a_day_after_it_ends_or_after_its_start_when_it_has_no_end() {
+    let over = |changed| event_is_over_at(&document_of(changed));
     assert_eq!(over(Changed { start: Some("2026-12-05 18:00"), ..Default::default() }), Some(unix("2026-12-06T16:00:00Z")));
     assert_eq!(over(Changed { start: Some("2026-12-05"), ..Default::default() }), Some(unix("2026-12-06T22:00:00Z")));
     let weekend = Changed { start: Some("2026-12-05"), end: Some("2026-12-07"), ..Default::default() };
@@ -165,7 +165,7 @@ fn a_moved_time_or_place_pings_a_description_change_does_not_no_change_says_noth
     let planned = || Changed { start: Some("2026-12-05 18:00"), end: None, place: Some("Bar"), description: Some("Snacks") };
     let before = document_of(planned());
     let moved = Changed { start: Some("2026-12-05 19:00"), place: Some("Park"), ..planned() };
-    let notice = meet_change_notice(&before, &document_on(moved, &before)).unwrap();
+    let notice = event_change_notice(&before, &document_on(moved, &before)).unwrap();
     assert_eq!(
         notice.lines,
         vec![
@@ -176,11 +176,11 @@ fn a_moved_time_or_place_pings_a_description_change_does_not_no_change_says_noth
     assert!(notice.pings_role);
     let detailed = document_on(Changed { description: Some("More"), ..planned() }, &before);
     assert_eq!(
-        meet_change_notice(&before, &detailed),
-        Some(MeetChangeNotice { lines: vec!["-# The details were updated.".to_owned()], pings_role: false })
+        event_change_notice(&before, &detailed),
+        Some(EventChangeNotice { lines: vec!["-# The details were updated.".to_owned()], pings_role: false })
     );
-    assert_eq!(meet_change_notice(&before, &before), None);
+    assert_eq!(event_change_notice(&before, &before), None);
     let mut cancelled = before.clone();
     cancelled["status"] = json!("cancelled");
-    assert_eq!(meet_change_notice(&before, &cancelled).unwrap().lines, vec!["❌ **Cancelled**".to_owned()]);
+    assert_eq!(event_change_notice(&before, &cancelled).unwrap().lines, vec!["❌ **Cancelled**".to_owned()]);
 }

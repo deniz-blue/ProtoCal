@@ -17,7 +17,7 @@ fn forum_config(forum_id: u64, name: Option<&str>) -> ForumConfig {
     ForumConfig {
         forum_id: Id::new(forum_id),
         name: name.map(str::to_owned),
-        is_meet_forum: true,
+        is_event_forum: true,
         announce_role_id: None,
         review_channel_id: None,
         has_default_reaction: true,
@@ -35,7 +35,7 @@ fn text_channel(id: u64, name: &str) -> CachedChannel {
 }
 
 #[test]
-fn config_page_matches_the_typescript_page_byte_for_byte() {
+fn config_page_matches_its_reference() {
     let forums = [
         ForumConfig {
             announce_role_id: Some("51".to_owned()),
@@ -44,7 +44,7 @@ fn config_page_matches_the_typescript_page_byte_for_byte() {
             ..forum_config(20, Some("meets"))
         },
         ForumConfig {
-            is_meet_forum: false,
+            is_event_forum: false,
             everyone_can_view: false,
             has_default_reaction: false,
             ..forum_config(21, Some("hidden <one>"))
@@ -70,12 +70,26 @@ fn config_page_matches_the_typescript_page_byte_for_byte() {
 }
 
 #[test]
-fn empty_saved_config_page_matches_the_typescript_page() {
+fn empty_config_page_matches_its_reference() {
     let options = ConfigPageOptions { guild_name: "empty", forums: &[], roles: &[], review_channels: &[], saved: true };
     assert_eq!(config_page(&test_links(), &options), include_str!("reference/config_page_empty.html"));
 }
 
 #[test]
-fn edit_return_page_matches_the_typescript_page() {
+fn edit_return_page_matches_its_reference() {
     assert_eq!(edit_return_page(), include_str!("reference/edit_return_page.html"));
+}
+
+#[test]
+fn saved_config_page_shows_the_save_button_as_saved() {
+    let forums = [forum_config(20, Some("meets"))];
+    let options = ConfigPageOptions { guild_name: "g", forums: &forums, roles: &[], review_channels: &[], saved: true };
+    assert!(config_page(&test_links(), &options).contains("<form method=\"post\" class=\"saved\">"));
+}
+
+#[test]
+fn config_page_without_roles_has_no_announce_role_picker() {
+    let forums = [forum_config(20, Some("meets"))];
+    let options = ConfigPageOptions { guild_name: "g", forums: &forums, roles: &[], review_channels: &[], saved: false };
+    assert!(!config_page(&test_links(), &options).contains("Announce role"));
 }

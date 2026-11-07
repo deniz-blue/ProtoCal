@@ -9,26 +9,26 @@ use std::{
 
 use tokio::sync::Notify;
 
-use super::{Bot, meet_lifecycle::end_meets_that_are_over, meet_request::drop_meet_requests_that_are_over};
+use super::{Bot, event_lifecycle::end_events_that_are_over, event_request::drop_event_requests_that_are_over};
 use crate::time::now_unix_seconds;
 
 const CHECK_EVERY: Duration = Duration::from_secs(15 * 60);
 
 #[derive(Default)]
-pub struct MeetClock {
+pub struct EventClock {
     started: AtomicBool,
     restart: Notify,
 }
 
-impl MeetClock {
+impl EventClock {
     pub fn check_now(bot: &Arc<Bot>) {
-        if bot.meet_clock.started.swap(true, Ordering::Relaxed) {
-            bot.meet_clock.restart.notify_one();
+        if bot.event_clock.started.swap(true, Ordering::Relaxed) {
+            bot.event_clock.restart.notify_one();
             return;
         }
         let bot = Arc::clone(bot);
         tokio::spawn(async move {
-            let clock = &bot.meet_clock;
+            let clock = &bot.event_clock;
             repeat_checks(CHECK_EVERY, &clock.restart, || check_and_log(&bot)).await;
         });
     }
@@ -36,13 +36,13 @@ impl MeetClock {
 
 async fn check(bot: &Bot) -> anyhow::Result<()> {
     let now = now_unix_seconds();
-    end_meets_that_are_over(bot, now).await?;
-    drop_meet_requests_that_are_over(bot, now).await
+    end_events_that_are_over(bot, now).await?;
+    drop_event_requests_that_are_over(bot, now).await
 }
 
 async fn check_and_log(bot: &Bot) {
     if let Err(error) = check(bot).await {
-        tracing::error!(?error, "Meet check failed");
+        tracing::error!(?error, "Event check failed");
     }
 }
 

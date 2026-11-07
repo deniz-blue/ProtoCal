@@ -5,6 +5,7 @@ mod config_routes;
 mod cors;
 mod edit_return_page;
 mod edit_routes;
+mod font;
 mod open_evnt_routes;
 mod page;
 #[cfg(test)]
@@ -32,13 +33,14 @@ use crate::bot::Bot;
 
 fn routes(bot: Arc<Bot>) -> Router {
     Router::new()
-        .route("/events/{file}", get(open_evnt_routes::meet_document))
+        .route("/events/{file}", get(open_evnt_routes::event_document))
         .route("/forums/{file}", get(open_evnt_routes::forum_index))
         .route("/calendars/{file}", get(open_evnt_routes::calendar_index))
         .route("/calendars/{token}/events/{file}", get(open_evnt_routes::calendar_document))
         .route("/edit/return", get(edit_routes::show_edit_return_page).post(edit_routes::save_edit_return))
         .route("/edit/{token}", get(edit_routes::open_editor))
         .route("/config/{token}", get(config_routes::show_config_page).post(config_routes::save_config))
+        .route(font::LEXEND_PATH, get(font::serve_lexend))
         .fallback(|| async { not_found() })
         .method_not_allowed_fallback(|| async { not_found() })
         .with_state(bot)

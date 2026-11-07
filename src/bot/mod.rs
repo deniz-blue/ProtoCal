@@ -2,18 +2,18 @@ pub mod access;
 pub mod calendar;
 pub mod clock;
 pub mod commands;
+mod event_edit;
+mod event_form;
+mod event_form_modal;
+mod event_form_submit;
+pub mod event_lifecycle;
+mod event_lifecycle_edit;
+mod event_request;
+mod event_request_messages;
+mod event_request_moderation;
+mod event_roles;
 pub mod guild_config;
 mod interactions;
-mod meet_edit;
-mod meet_form;
-mod meet_form_modal;
-mod meet_form_submit;
-pub mod meet_lifecycle;
-mod meet_lifecycle_edit;
-mod meet_request;
-mod meet_request_messages;
-mod meet_request_moderation;
-mod meet_roles;
 mod pins;
 
 use std::{collections::HashMap, sync::Mutex};
@@ -37,7 +37,7 @@ use crate::{
         permissions::MemberRoles,
     },
     grants::GrantStore,
-    meet::fields::MeetFields,
+    event::fields::EventFields,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -59,11 +59,11 @@ pub struct Bot {
     pub db: Database,
     pub cache: GuildCache,
     pub bot_users: BotUsers,
-    pub meet_clock: clock::MeetClock,
+    pub event_clock: clock::EventClock,
     pub links: Links,
     pub config_grants: GrantStore<ConfigGrant>,
     pub edit_grants: GrantStore<EditGrant>,
-    rejected_drafts: Mutex<HashMap<String, MeetFields>>,
+    rejected_drafts: Mutex<HashMap<String, EventFields>>,
 }
 
 impl Bot {
@@ -75,7 +75,7 @@ impl Bot {
             db,
             cache: GuildCache::default(),
             bot_users: BotUsers::default(),
-            meet_clock: clock::MeetClock::default(),
+            event_clock: clock::EventClock::default(),
             links,
             config_grants: GrantStore::default(),
             edit_grants: GrantStore::default(),
@@ -125,13 +125,13 @@ impl Bot {
                 if by_bot || reaction.user_id == self.user_id {
                     return Ok(());
                 }
-                meet_roles::change_attendance(self, meet_roles::RoleChange::Add, &reaction).await
+                event_roles::change_attendance(self, event_roles::RoleChange::Add, &reaction).await
             }
             Event::ReactionRemove(reaction) => {
                 if reaction.user_id == self.user_id || self.bot_users.is_bot(reaction.user_id) {
                     return Ok(());
                 }
-                meet_roles::change_attendance(self, meet_roles::RoleChange::Remove, &reaction).await
+                event_roles::change_attendance(self, event_roles::RoleChange::Remove, &reaction).await
             }
             Event::ThreadCreate(thread) => {
                 let Some(thread) = self.cache.channel(thread.id).filter(|_| thread.newly_created == Some(true)) else {
@@ -140,19 +140,19 @@ impl Bot {
                 if thread.owner_id == Some(self.user_id) {
                     return Ok(());
                 }
-                meet_lifecycle::start_meet(self, &thread, None).await.map(drop)
+                event_lifecycle::start_event(self, &thread, None).await.map(drop)
             }
-            Event::ThreadDelete(thread) => meet_lifecycle::end_meet(self, thread.guild_id, thread.id).await,
+            Event::ThreadDelete(thread) => event_lifecycle::end_event(self, thread.guild_id, thread.id).await,
             Event::ThreadUpdate(thread) => {
                 let Some(after) = self.cache.channel(thread.id) else {
                     return Ok(());
                 };
                 let was_locked = thread_before.as_ref().is_some_and(|before| before.locked);
                 if !was_locked && after.locked {
-                    return meet_lifecycle::end_meet(self, after.guild_id, after.id).await;
+                    return event_lifecycle::end_event(self, after.guild_id, after.id).await;
                 }
                 if thread_before.is_none_or(|before| before.name != after.name) {
-                    meet_lifecycle::rename_meet_of_thread(self, &after).await?;
+                    event_lifecycle::rename_event_of_thread(self, &after).await?;
                 }
                 Ok(())
             }
@@ -160,11 +160,11 @@ impl Bot {
         }
     }
 
-    pub fn rejected_draft_of(&self, user_id: Id<UserMarker>, target: &str) -> Option<MeetFields> {
+    pub fn rejected_draft_of(&self, user_id: Id<UserMarker>, target: &str) -> Option<EventFields> {
         self.drafts().get(&format!("{user_id}:{target}")).cloned()
     }
 
-    pub fn reject_draft_of(&self, user_id: Id<UserMarker>, target: &str, fields: MeetFields) {
+    pub fn reject_draft_of(&self, user_id: Id<UserMarker>, target: &str, fields: EventFields) {
         self.drafts().insert(format!("{user_id}:{target}"), fields);
     }
 
@@ -172,7 +172,7 @@ impl Bot {
         self.drafts().remove(&format!("{user_id}:{target}"));
     }
 
-    fn drafts(&self) -> std::sync::MutexGuard<'_, HashMap<String, MeetFields>> {
+    fn drafts(&self) -> std::sync::MutexGuard<'_, HashMap<String, EventFields>> {
         self.rejected_drafts.lock().expect("draft lock poisoned")
     }
 }

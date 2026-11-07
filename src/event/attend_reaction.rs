@@ -22,8 +22,8 @@ impl ReactionEmoji {
     }
 }
 
-pub fn role_name_of_meet(meet_name: &str) -> String {
-    cut_to_utf16_length(&format!("Meet: {meet_name}"), LONGEST_ROLE_NAME).to_owned()
+pub fn role_name_of_event(event_name: &str) -> String {
+    cut_to_utf16_length(&format!("Event: {event_name}"), LONGEST_ROLE_NAME).to_owned()
 }
 
 #[cfg(test)]
@@ -52,7 +52,7 @@ mod tests {
 
     #[test]
     fn a_role_name_is_cut_to_what_discord_accepts() {
-        assert_eq!(role_name_of_meet("Bar meet"), "Meet: Bar meet");
-        assert_eq!(role_name_of_meet(&"x".repeat(200)).len(), 100);
+        assert_eq!(role_name_of_event("Bar meet"), "Event: Bar meet");
+        assert_eq!(role_name_of_event(&"x".repeat(200)).len(), 100);
     }
 }

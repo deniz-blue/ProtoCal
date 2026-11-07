@@ -10,15 +10,15 @@ use crate::{
         answer::{Answer, Reply},
         modal::{TextField, modal, submitted_value},
     },
-    meet::{
-        fields::MeetFields,
-        post::{MeetFormTarget, THREAD_NAME_MAX},
+    event::{
+        fields::EventFields,
+        post::{EventFormTarget, THREAD_NAME_MAX},
     },
     text::cut_to_utf16_length,
 };
 
-pub fn meet_form_modal(target: &MeetFormTarget, filled: Option<MeetFields>) -> InteractionResponseData {
-    let filled = filled.unwrap_or(MeetFields {
+pub fn event_form_modal(target: &EventFormTarget, filled: Option<EventFields>) -> InteractionResponseData {
+    let filled = filled.unwrap_or(EventFields {
         name: String::new(),
         start: None,
         end: None,
@@ -34,7 +34,7 @@ pub fn meet_form_modal(target: &MeetFormTarget, filled: Option<MeetFields>) -> I
         placeholder: None,
         value: value.map(|value| cut_to_utf16_length(&value, max_length).to_owned()),
     };
-    let title = if matches!(target, MeetFormTarget::New(_)) { "New meet" } else { "Edit meet" };
+    let title = if matches!(target, EventFormTarget::New(_)) { "New event" } else { "Edit event" };
     modal(
         target.custom_id(),
         title,
@@ -54,8 +54,8 @@ pub fn meet_form_modal(target: &MeetFormTarget, filled: Option<MeetFields>) -> I
     )
 }
 
-pub fn fields_of_submitted_meet_form(data: &ModalInteractionData) -> MeetFields {
-    MeetFields {
+pub fn fields_of_submitted_event_form(data: &ModalInteractionData) -> EventFields {
+    EventFields {
         name: submitted_value(data, "name").unwrap_or_default(),
         start: submitted_value(data, "start"),
         end: submitted_value(data, "end"),
@@ -67,8 +67,8 @@ pub fn fields_of_submitted_meet_form(data: &ModalInteractionData) -> MeetFields 
 pub async fn reject_draft(
     bot: &Bot,
     answer: &Answer<'_>,
-    target: &MeetFormTarget,
-    fields: MeetFields,
+    target: &EventFormTarget,
+    fields: EventFields,
     message: &str,
 ) -> anyhow::Result<()> {
     if let Some(user_id) = answer.interaction.author_id() {

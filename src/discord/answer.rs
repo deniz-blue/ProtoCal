@@ -20,8 +20,8 @@ impl Reply {
     }
 }
 
-impl From<crate::meet::request_view::MessageView> for Reply {
-    fn from(view: crate::meet::request_view::MessageView) -> Self {
+impl From<crate::event::request_view::MessageView> for Reply {
+    fn from(view: crate::event::request_view::MessageView) -> Self {
         Self { content: view.content, components: view.components }
     }
 }

@@ -3,7 +3,7 @@ use serde_json::Value;
 use twilight_model::id::{Id, marker::UserMarker};
 
 use super::{Database, json_of, parsed, parsed_optional};
-use crate::records::{MeetRequest, MessageAt, RequestState};
+use crate::records::{EventRequest, MessageAt, RequestState};
 
 const COLUMNS: &str = "id, guild_id, forum_id, host_id, document, state, handled_by, decline_reason, \
     host_edited, moderators_edited, card_channel_id, card_message_id, dm_channel_id, dm_message_id, updated_at";
@@ -29,11 +29,11 @@ pub enum RequestEditor {
     Moderator,
 }
 
-fn meet_request_of_row(row: &Row) -> rusqlite::Result<MeetRequest> {
+fn event_request_of_row(row: &Row) -> rusqlite::Result<EventRequest> {
     let state: String = row.get(5)?;
     let dm_channel_id = parsed_optional(row, 12)?;
     let dm_message_id = parsed_optional(row, 13)?;
-    Ok(MeetRequest {
+    Ok(EventRequest {
         id: row.get(0)?,
         guild_id: parsed(row, 1)?,
         forum_id: parsed(row, 2)?,
@@ -54,25 +54,25 @@ fn meet_request_of_row(row: &Row) -> rusqlite::Result<MeetRequest> {
 }
 
 impl Database {
-    pub fn meet_request_of(&self, id: &str) -> anyhow::Result<Option<MeetRequest>> {
+    pub fn event_request_of(&self, id: &str) -> anyhow::Result<Option<EventRequest>> {
         self.with(|db| {
-            db.query_row(&format!("SELECT {COLUMNS} FROM meet_requests WHERE id = ?1"), [id], meet_request_of_row)
+            db.query_row(&format!("SELECT {COLUMNS} FROM event_requests WHERE id = ?1"), [id], event_request_of_row)
                 .optional()
         })
     }
 
-    pub fn all_meet_requests(&self) -> anyhow::Result<Vec<MeetRequest>> {
+    pub fn all_event_requests(&self) -> anyhow::Result<Vec<EventRequest>> {
         self.with(|db| {
-            db.prepare(&format!("SELECT {COLUMNS} FROM meet_requests"))?
-                .query_map([], meet_request_of_row)?
+            db.prepare(&format!("SELECT {COLUMNS} FROM event_requests"))?
+                .query_map([], event_request_of_row)?
                 .collect()
         })
     }
 
-    pub fn save_meet_request(&self, request: &MeetRequest) -> anyhow::Result<()> {
+    pub fn save_event_request(&self, request: &EventRequest) -> anyhow::Result<()> {
         self.with(|db| {
             db.execute(
-                &format!("INSERT INTO meet_requests ({COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)"),
+                &format!("INSERT INTO event_requests ({COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)"),
                 params![
                     request.id,
                     request.guild_id.to_string(),
@@ -95,53 +95,53 @@ impl Database {
         })
     }
 
-    pub fn decline_meet_request(
+    pub fn decline_event_request(
         &self,
         id: &str,
         by: Id<UserMarker>,
         reason: Option<&str>,
-    ) -> anyhow::Result<Option<MeetRequest>> {
+    ) -> anyhow::Result<Option<EventRequest>> {
         self.with(|db| {
             db.query_row(
                 &format!(
-                    "UPDATE meet_requests SET state = 'declined', handled_by = ?2, decline_reason = ?3
+                    "UPDATE event_requests SET state = 'declined', handled_by = ?2, decline_reason = ?3
                      WHERE {} RETURNING {COLUMNS}",
                     RequestMatch::OnlyIfWaiting.condition()
                 ),
                 params![id, by.to_string(), reason],
-                meet_request_of_row,
+                event_request_of_row,
             )
             .optional()
         })
     }
 
-    pub fn edit_meet_request(
+    pub fn edit_event_request(
         &self,
         id: &str,
         document: &Value,
         editor: RequestEditor,
         updated_at: i64,
-    ) -> anyhow::Result<Option<MeetRequest>> {
+    ) -> anyhow::Result<Option<EventRequest>> {
         let edited = match editor {
             RequestEditor::Host => "host_edited = 1, state = 'waiting', handled_by = NULL, decline_reason = NULL",
             RequestEditor::Moderator => "moderators_edited = 1",
         };
         self.with(|db| {
             db.query_row(
-                &format!("UPDATE meet_requests SET document = ?2, updated_at = ?3, {edited} WHERE id = ?1 RETURNING {COLUMNS}"),
+                &format!("UPDATE event_requests SET document = ?2, updated_at = ?3, {edited} WHERE id = ?1 RETURNING {COLUMNS}"),
                 params![id, document.to_string(), updated_at],
-                meet_request_of_row,
+                event_request_of_row,
             )
             .optional()
         })
     }
 
-    pub fn forget_meet_request(&self, id: &str, matching: RequestMatch) -> anyhow::Result<Option<MeetRequest>> {
+    pub fn forget_event_request(&self, id: &str, matching: RequestMatch) -> anyhow::Result<Option<EventRequest>> {
         self.with(|db| {
             db.query_row(
-                &format!("DELETE FROM meet_requests WHERE {} RETURNING {COLUMNS}", matching.condition()),
+                &format!("DELETE FROM event_requests WHERE {} RETURNING {COLUMNS}", matching.condition()),
                 [id],
-                meet_request_of_row,
+                event_request_of_row,
             )
             .optional()
         })

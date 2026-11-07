@@ -23,4 +23,9 @@ Settings come from the environment or `.env`:
 | `LOG_LEVEL` | `info` |
 
 The database is the one the TypeScript version made with drizzle. Opening an older one
-adds `meet_forums.review_channel_id`.
+renames `meets`, `meet_forums` and `meet_requests` to `events`, `event_forums` and
+`event_requests`, and adds `event_forums.review_channel_id`.
+
+The web pages use Lexend 1.007, built into the binary from `assets/fonts/Lexend.woff2` and
+served at `/fonts/lexend.woff2`. It is under the SIL Open Font License, in
+`assets/fonts/OFL.txt`.

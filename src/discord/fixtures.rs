@@ -10,7 +10,7 @@ use twilight_model::{
 };
 
 use super::cache::{CachedChannel, CachedGuild, CachedRole};
-use crate::meet::attend_reaction::ReactionEmoji;
+use crate::event::attend_reaction::ReactionEmoji;
 
 pub const GUILD: u64 = 1;
 pub const OWNER: u64 = 100;

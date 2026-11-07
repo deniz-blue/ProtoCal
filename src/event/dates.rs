@@ -69,7 +69,7 @@ fn occurrences_of(document: &Value) -> &[Value] {
         .map_or(&[], Vec::as_slice)
 }
 
-pub fn meet_dates_as_discord(document: &Value, relative: bool) -> Option<String> {
+pub fn event_dates_as_discord(document: &Value, relative: bool) -> Option<String> {
     let dates: Vec<String> = occurrences_of(document)
         .iter()
         .filter_map(|occurrence| occurrence_as_discord(occurrence, relative))
@@ -77,7 +77,7 @@ pub fn meet_dates_as_discord(document: &Value, relative: bool) -> Option<String>
     (!dates.is_empty()).then(|| dates.join(", "))
 }
 
-pub fn meet_is_over_at(document: &Value) -> Option<i64> {
+pub fn event_is_over_at(document: &Value) -> Option<i64> {
     occurrences_of(document)
         .iter()
         .filter_map(|occurrence| occurrence.get("end").or_else(|| occurrence.get("start")))

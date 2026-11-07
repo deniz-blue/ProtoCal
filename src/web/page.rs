@@ -1,61 +1,6 @@
-const STYLE: &str = r#"			:root {
-				color-scheme: dark;
-				accent-color: #b48cff;
-			}
-			body {
-				background: #000;
-				color: #ddd;
-				font:
-					17px/1.5 system-ui,
-					sans-serif;
-				margin: 0;
-				padding: 2rem 1.5rem;
-			}
-			a {
-				color: #b48cff;
-			}
-			h1 {
-				font-size: 1.4rem;
-				margin: 0 0 1.5rem;
-			}
-			h2 {
-				font-size: 1.1rem;
-				margin: 1.5rem 0 0.25rem;
-			}
-			.hint {
-				color: #888;
-				font-size: 0.85em;
-			}
-			table {
-				border-collapse: collapse;
-				margin: 0.75rem 0 1.25rem;
-			}
-			th {
-				color: #888;
-				font-weight: normal;
-				text-align: left;
-			}
-			th,
-			td {
-				padding: 0.35rem 1.25rem 0.35rem 0;
-				vertical-align: top;
-			}
-			select,
-			button {
-				font: inherit;
-				color: inherit;
-				background: #111;
-				border: 1px solid #333;
-				border-radius: 6px;
-				padding: 0.3rem 0.5rem;
-			}
-			button {
-				background: #b48cff;
-				color: #000;
-				border: 0;
-				padding: 0.4rem 1.2rem;
-				cursor: pointer;
-			}"#;
+use super::font::LEXEND_PATH;
+
+const STYLE: &str = include_str!("page.css");
 
 pub fn escaped(text: &str) -> String {
     text.chars()
@@ -74,7 +19,24 @@ pub fn escaped(text: &str) -> String {
 
 pub fn page(title: &str, body: &str) -> String {
     format!(
-        "<!doctype html>\n\t<html lang=\"en\">\n\t\t<meta charset=\"utf-8\" />\n\t\t<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n\t\t<meta name=\"referrer\" content=\"no-referrer\" />\n\t\t<title>{}</title>\n\t\t<style>\n{STYLE}\n\t\t</style>\n\t\t{body}\n\t</html> ",
+        "<!doctype html>
+<html lang=\"en\">
+<meta charset=\"utf-8\" />
+<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, viewport-fit=cover\" />
+<meta name=\"referrer\" content=\"no-referrer\" />
+<title>{}</title>
+<link rel=\"preload\" href=\"{LEXEND_PATH}\" as=\"font\" type=\"font/woff2\" crossorigin />
+<style>
+@font-face {{
+	font-family: Lexend;
+	src: url(\"{LEXEND_PATH}\") format(\"woff2\");
+	font-weight: 100 900;
+	font-display: block;
+}}
+{STYLE}</style>
+{body}
+</html>
+",
         escaped(title)
     )
 }

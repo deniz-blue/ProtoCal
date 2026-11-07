@@ -60,7 +60,7 @@ pub fn with_query(address: &str, pairs: &[(&str, &str)]) -> String {
 }
 
 impl Links {
-    pub fn meet_document_url(&self, thread_id: impl std::fmt::Display) -> String {
+    pub fn event_document_url(&self, thread_id: impl std::fmt::Display) -> String {
         format!("{}/events/{thread_id}.evnt.json", self.public_url)
     }
 
@@ -92,8 +92,8 @@ impl Links {
         with_query(&self.index_viewer_url, &[("url", index_url)])
     }
 
-    pub fn meet_view_url(&self, thread_id: impl std::fmt::Display) -> String {
-        with_query(&self.viewer_url, &[("url", &self.meet_document_url(thread_id))])
+    pub fn event_view_url(&self, thread_id: impl std::fmt::Display) -> String {
+        with_query(&self.viewer_url, &[("url", &self.event_document_url(thread_id))])
     }
 
     pub fn editor_url(&self, document: &str, token: &str) -> String {

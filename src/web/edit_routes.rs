@@ -10,7 +10,7 @@ use axum::{
 use serde_json::{Value, json};
 
 use super::{Answered, edit_return_page::edit_return_page, html_answer, text_answer};
-use crate::{bot::Bot, meet::document::validate_meet_document};
+use crate::{bot::Bot, event::document::validate_event_document};
 
 const EDIT_LINK_EXPIRED: &str = "This edit link has run out. Ask for a new one in Discord.";
 
@@ -39,10 +39,10 @@ pub async fn save_edit_return(State(bot): State<Arc<Bot>>, body: Bytes) -> Answe
     let Some(grant) = bot.edit_grants.find(token) else {
         return edit_answer(StatusCode::FORBIDDEN, EDIT_LINK_EXPIRED, None);
     };
-    let meet = bot.db.meet_of_thread(grant.thread_id)?;
+    let event_post = bot.db.event_of_thread(grant.thread_id)?;
     let thread = bot.channel(grant.thread_id).await.filter(|thread| thread.is_thread());
-    let (Some(meet), Some(thread)) = (meet, thread) else {
-        return edit_answer(StatusCode::BAD_REQUEST, "That meet is over or its post is gone.", None);
+    let (Some(event_post), Some(thread)) = (event_post, thread) else {
+        return edit_answer(StatusCode::BAD_REQUEST, "That event is over or its post is gone.", None);
     };
     let thread_url = format!("https://discord.com/channels/{}/{}", thread.guild_id, thread.id);
     let thread_url = Some(thread_url.as_str());
@@ -50,28 +50,28 @@ pub async fn save_edit_return(State(bot): State<Arc<Bot>>, body: Bytes) -> Answe
         return edit_answer(StatusCode::OK, "Nothing was changed.", thread_url);
     }
     let event = parsed_event(sent.get("event")).filter(|event| {
-        event.as_object().is_some_and(|fields| fields.get("id") == meet.document.get("id"))
+        event.as_object().is_some_and(|fields| fields.get("id") == event_post.document.get("id"))
     });
     let Some(event) = event else {
-        return edit_answer(StatusCode::BAD_REQUEST, "That is not this meet's event. Its id does not match.", thread_url);
+        return edit_answer(StatusCode::BAD_REQUEST, "That is not this event. Its id does not match.", thread_url);
     };
-    if let Err(problem) = validate_meet_document(&event) {
+    if let Err(problem) = validate_event_document(&event) {
         return edit_answer(StatusCode::BAD_REQUEST, &problem.message, thread_url);
     }
-    crate::bot::meet_lifecycle::save_meet_document(&bot, &thread, &meet, event).await?;
+    crate::bot::event_lifecycle::save_event_document(&bot, &thread, &event_post, event).await?;
     bot.edit_grants.spend(token);
     edit_answer(StatusCode::OK, "Saved.", thread_url)
 }
 
 pub async fn open_editor(State(bot): State<Arc<Bot>>, Path(token): Path<String>) -> Answered {
     let grant = bot.edit_grants.find(&token);
-    let meet = match grant {
-        Some(grant) => bot.db.meet_of_thread(grant.thread_id)?,
+    let event_post = match grant {
+        Some(grant) => bot.db.event_of_thread(grant.thread_id)?,
         None => None,
     };
-    let Some(meet) = meet else {
+    let Some(event_post) = event_post else {
         return Ok(text_answer(StatusCode::FORBIDDEN, EDIT_LINK_EXPIRED));
     };
-    let editor_url = bot.links.editor_url(&meet.document.to_string(), &token);
+    let editor_url = bot.links.editor_url(&event_post.document.to_string(), &token);
     Ok((StatusCode::FOUND, [(header::LOCATION, editor_url)]).into_response())
 }

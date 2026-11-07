@@ -2,11 +2,11 @@ use regex::Regex;
 use serde_json::json;
 use twilight_model::id::Id;
 
-use super::index::{ListedMeet, etag_of, meet_document_body, open_evnt_index_of};
-use crate::records::Meet;
+use super::index::{ListedEvent, etag_of, event_document_body, open_evnt_index_of};
+use crate::records::EventPost;
 
-fn meet(thread_id: u64, name: &str, updated_at: i64) -> Meet {
-    Meet {
+fn event(thread_id: u64, name: &str, updated_at: i64) -> EventPost {
+    EventPost {
         thread_id: Id::new(thread_id),
         guild_id: Id::new(1),
         forum_id: Id::new(2),
@@ -20,19 +20,19 @@ fn meet(thread_id: u64, name: &str, updated_at: i64) -> Meet {
 
 #[test]
 fn an_index_lists_the_newest_thread_first_with_each_documents_etag() {
-    let older = meet(998, "Bar meet", 1_800_000_000);
-    let newer = meet(1001, "Picnic", 1_800_000_060);
+    let older = event(998, "Bar meet", 1_800_000_000);
+    let newer = event(1001, "Picnic", 1_800_000_060);
     let index = open_evnt_index_of(vec![
-        ListedMeet { meet: &older, href: "/e/998".to_owned(), name: Some("Bar meet".to_owned()) },
-        ListedMeet { meet: &newer, href: "/e/1001".to_owned(), name: Some("Picnic".to_owned()) },
+        ListedEvent { event: &older, href: "/e/998".to_owned(), name: Some("Bar meet".to_owned()) },
+        ListedEvent { event: &newer, href: "/e/1001".to_owned(), name: Some("Picnic".to_owned()) },
     ]);
     assert_eq!(
         index.to_string(),
         json!({
             "version": 1,
             "items": [
-                { "href": "/e/1001", "name": "Picnic", "updatedAt": "2027-01-15T08:01:00.000Z", "etag": etag_of(&meet_document_body(&newer)) },
-                { "href": "/e/998", "name": "Bar meet", "updatedAt": "2027-01-15T08:00:00.000Z", "etag": etag_of(&meet_document_body(&older)) },
+                { "href": "/e/1001", "name": "Picnic", "updatedAt": "2027-01-15T08:01:00.000Z", "etag": etag_of(&event_document_body(&newer)) },
+                { "href": "/e/998", "name": "Bar meet", "updatedAt": "2027-01-15T08:00:00.000Z", "etag": etag_of(&event_document_body(&older)) },
             ],
         })
         .to_string()

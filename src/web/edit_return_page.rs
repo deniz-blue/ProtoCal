@@ -1,7 +1,9 @@
 use super::page::page;
 
-const BODY: &str = r#"<p id="status">Saving…</p>
-<p><a id="back" hidden>Back to the post</a></p>
+const BODY: &str = r#"<main class="return">
+	<p id="status"><span class="spinner" role="status" aria-label="Saving"></span></p>
+	<a class="button" id="back">Back to the post</a>
+</main>
 <script>
 	const fragment = new URLSearchParams(location.hash.slice(1));
 	history.replaceState(null, "", location.pathname);
@@ -21,7 +23,6 @@ const BODY: &str = r#"<p id="status">Saving…</p>
 			status.textContent = answer.message;
 			if (answer.threadUrl) {
 				back.href = answer.threadUrl;
-				back.hidden = false;
 			}
 		})
 		.catch(() => {

@@ -9,8 +9,8 @@ use super::{
     Bot, ConfigGrant,
     access::interaction_has_permission,
     guild_config::may_configure_guild,
-    meet_form::offer_new_meet_form,
-    meet_lifecycle::{MeetStart, start_meet},
+    event_form::offer_new_event_form,
+    event_lifecycle::{EventStart, start_event},
 };
 use crate::{
     components::{link_button, row},
@@ -31,17 +31,17 @@ fn manage_guild() -> Permissions {
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "event", desc = "Meets", contexts = "guild")]
+#[command(name = "event", desc = "Events", contexts = "guild")]
 pub enum EventCommand {
     #[command(name = "new")]
-    New(PostMeet),
+    New(PostEvent),
     #[command(name = "track")]
     Track(TrackPost),
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "new", desc = "Post a meet")]
-pub struct PostMeet {
+#[command(name = "new", desc = "Post an event")]
+pub struct PostEvent {
     #[command(
         desc = "Where to post it; without it you pick from the forums you can post in",
         channel_types = "guild_forum"
@@ -50,11 +50,11 @@ pub struct PostMeet {
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "track", desc = "Make this post, made by hand, a meet")]
+#[command(name = "track", desc = "Make this post, made by hand, an event")]
 pub struct TrackPost;
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "mycalendar", desc = "Link to the meets you joined", contexts = "guild bot_dm")]
+#[command(name = "mycalendar", desc = "Link to the events you joined", contexts = "guild bot_dm")]
 pub struct MyCalendar {
     #[command(rename = "new", desc = "Replace your link")]
     replace: Option<bool>,
@@ -73,7 +73,7 @@ pub async fn run_command(bot: &Bot, answer: &Answer<'_>, data: &CommandData) -> 
     match data.name.as_str() {
         "config" => open_config(bot, answer).await,
         "event" => match EventCommand::from_interaction(input)? {
-            EventCommand::New(PostMeet { forum }) => offer_new_meet_form(bot, answer, forum).await,
+            EventCommand::New(PostEvent { forum }) => offer_new_event_form(bot, answer, forum).await,
             EventCommand::Track(TrackPost) => track_post(bot, answer).await,
         },
         "mycalendar" => open_calendar(bot, answer, MyCalendar::from_interaction(input)?).await,
@@ -127,24 +127,24 @@ async fn track_post_outcome(bot: &Bot, answer: &Answer<'_>) -> anyhow::Result<&'
     };
     let is_staff = interaction_has_permission(interaction, Permissions::MANAGE_THREADS);
     let forum = match thread.parent_id {
-        Some(parent_id) => bot.db.meet_forum_of(parent_id)?,
+        Some(parent_id) => bot.db.event_forum_of(parent_id)?,
         None => None,
     };
     if forum.is_some_and(|forum| forum.is_screened()) && !is_staff {
-        return Ok("Moderators check every meet in this forum, so only staff can do this.");
+        return Ok("Moderators check every event in this forum, so only staff can do this.");
     }
     if thread.owner_id != interaction.author_id() && !is_staff {
         return Ok("Only the person who posted it or staff can do this.");
     }
-    if bot.db.meet_of_thread(thread.id)?.is_some() {
-        return Ok("This post is a meet already.");
+    if bot.db.event_of_thread(thread.id)?.is_some() {
+        return Ok("This post is an event already.");
     }
-    Ok(match start_meet(bot, &thread, None).await? {
-        MeetStart::Started => "This post is a meet now. Everyone who already reacted got the role.",
-        MeetStart::NoAttendReaction => {
+    Ok(match start_event(bot, &thread, None).await? {
+        EventStart::Started => "This post is an event now. Everyone who already reacted got the role.",
+        EventStart::NoAttendReaction => {
             "This forum has no default reaction to attend with. Staff can set one in the forum's settings."
         }
-        MeetStart::NotAMeetForum => "This post is not in a meet forum.",
+        EventStart::NotAnEventForum => "This post is not in an event forum.",
     })
 }
 

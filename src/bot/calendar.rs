@@ -8,7 +8,7 @@ use twilight_model::{
 use super::Bot;
 use crate::{
     grants::random_token,
-    records::{CalendarLink, Meet},
+    records::{CalendarLink, EventPost},
     time::now_unix_seconds,
 };
 
@@ -22,26 +22,26 @@ impl Bot {
         Ok(link)
     }
 
-    pub async fn meets_joined_by(&self, user_id: Id<UserMarker>) -> anyhow::Result<Vec<Meet>> {
-        let mut meets_by_guild: BTreeMap<_, Vec<Meet>> = BTreeMap::new();
-        for meet in self.db.all_meets()? {
-            meets_by_guild.entry(meet.guild_id).or_default().push(meet);
+    pub async fn events_joined_by(&self, user_id: Id<UserMarker>) -> anyhow::Result<Vec<EventPost>> {
+        let mut events_by_guild: BTreeMap<_, Vec<EventPost>> = BTreeMap::new();
+        for event in self.db.all_events()? {
+            events_by_guild.entry(event.guild_id).or_default().push(event);
         }
         let mut joined = Vec::new();
-        for (guild_id, meets) in meets_by_guild {
+        for (guild_id, events) in events_by_guild {
             if self.cache.guild(guild_id).is_none() {
                 continue;
             }
             let Some(member) = self.member_roles(guild_id, user_id).await else {
                 continue;
             };
-            for meet in meets {
-                if !member.role_ids.contains(&meet.role_id) {
+            for event in events {
+                if !member.role_ids.contains(&event.role_id) {
                     continue;
                 }
-                let forum = self.forum_of_guild(guild_id, meet.forum_id).await;
+                let forum = self.forum_of_guild(guild_id, event.forum_id).await;
                 if forum.is_some_and(|forum| self.permissions_in(&forum, &member).contains(Permissions::VIEW_CHANNEL)) {
-                    joined.push(meet);
+                    joined.push(event);
                 }
             }
         }

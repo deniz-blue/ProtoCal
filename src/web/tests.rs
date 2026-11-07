@@ -17,14 +17,14 @@ use crate::{
     config::test_links,
     db::Database,
     discord::fixtures::{GUILD, forum, guild, hidden_forum},
-    records::{CalendarLink, Meet, MeetForum},
+    records::{CalendarLink, EventForum, EventPost},
 };
 
 const OPEN_FORUM: u64 = 20;
 const HIDDEN_FORUM: u64 = 21;
 
-fn meet(thread_id: u64, forum_id: u64, name: &str) -> Meet {
-    Meet {
+fn event(thread_id: u64, forum_id: u64, name: &str) -> EventPost {
+    EventPost {
         thread_id: Id::new(thread_id),
         guild_id: Id::new(GUILD),
         forum_id: Id::new(forum_id),
@@ -40,7 +40,7 @@ pub fn seeded_bot() -> Arc<Bot> {
     let unreachable = Client::builder().proxy("127.0.0.1:9".to_owned(), true).build();
     let db = Database::in_memory();
     for forum_id in [OPEN_FORUM, HIDDEN_FORUM] {
-        db.save_meet_forum(&MeetForum {
+        db.save_event_forum(&EventForum {
             forum_id: Id::new(forum_id),
             guild_id: Id::new(GUILD),
             announce_role_id: None,
@@ -48,9 +48,9 @@ pub fn seeded_bot() -> Arc<Bot> {
         })
         .unwrap();
     }
-    db.save_meet(&meet(1000, OPEN_FORUM, "Bar meet")).unwrap();
-    db.save_meet(&meet(1001, OPEN_FORUM, "Park meet")).unwrap();
-    db.save_meet(&meet(1002, HIDDEN_FORUM, "Secret meet")).unwrap();
+    db.save_event(&event(1000, OPEN_FORUM, "Bar meet")).unwrap();
+    db.save_event(&event(1001, OPEN_FORUM, "Park meet")).unwrap();
+    db.save_event(&event(1002, HIDDEN_FORUM, "Secret meet")).unwrap();
     db.save_calendar_link(&CalendarLink { user_id: Id::new(4), token: "tok_en-1".to_owned(), created_at: 1 }).unwrap();
     let bot = Bot::new(unreachable, Id::new(1), Id::new(2), db, test_links());
     bot.cache.insert_guild(guild());
@@ -76,7 +76,7 @@ pub fn header_of(response: &Response, name: header::HeaderName) -> &str {
 }
 
 #[tokio::test]
-async fn meet_document_is_served_with_an_etag_and_cors() {
+async fn event_document_is_served_with_an_etag_and_cors() {
     let bot = seeded_bot();
     let response = get(&bot, "/events/1000.evnt.json").await;
     assert_eq!(response.status(), StatusCode::OK);
@@ -161,17 +161,27 @@ async fn edit_return_without_a_grant_is_refused() {
 }
 
 #[tokio::test]
+async fn lexend_is_served_as_woff2_with_a_long_cache() {
+    let bot = seeded_bot();
+    let response = get(&bot, "/fonts/lexend.woff2").await;
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(header_of(&response, header::CONTENT_TYPE), "font/woff2");
+    assert_eq!(header_of(&response, header::CACHE_CONTROL), "public, max-age=31536000, immutable");
+    assert!(response.into_body().collect().await.unwrap().to_bytes().starts_with(b"wOF2"));
+}
+
+#[tokio::test]
 async fn config_link_without_a_grant_is_refused() {
     let bot = seeded_bot();
     assert_eq!(get(&bot, "/config/nope").await.status(), StatusCode::FORBIDDEN);
-    let request = Request::post("/config/nope").body(Body::from("meet=20")).unwrap();
+    let request = Request::post("/config/nope").body(Body::from("event=20")).unwrap();
     assert_eq!(send(&bot, request).await.status(), StatusCode::FORBIDDEN);
 }
 
 #[test]
 fn config_form_keeps_only_single_values_per_forum() {
-    let change = guild_config_change_of_form(b"meet=20&meet=21&announce%3A20=51&review%3A20=&review%3A20=30&other=1");
-    assert_eq!(change.meet_forum_ids, ["20".to_owned(), "21".to_owned()].into());
+    let change = guild_config_change_of_form(b"event=20&event=21&announce%3A20=51&review%3A20=&review%3A20=30&other=1");
+    assert_eq!(change.event_forum_ids, ["20".to_owned(), "21".to_owned()].into());
     assert_eq!(change.announce_role_id_of, [("20".to_owned(), "51".to_owned())].into());
     assert!(change.review_channel_id_of.is_empty());
 }

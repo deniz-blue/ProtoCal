@@ -5,21 +5,21 @@ use twilight_model::id::{
 };
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct MeetForum {
+pub struct EventForum {
     pub forum_id: Id<ChannelMarker>,
     pub guild_id: Id<GuildMarker>,
     pub announce_role_id: Option<Id<RoleMarker>>,
     pub review_channel_id: Option<Id<ChannelMarker>>,
 }
 
-impl MeetForum {
+impl EventForum {
     pub fn is_screened(&self) -> bool {
         self.review_channel_id.is_some()
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Meet {
+pub struct EventPost {
     pub thread_id: Id<ChannelMarker>,
     pub guild_id: Id<GuildMarker>,
     pub forum_id: Id<ChannelMarker>,
@@ -67,7 +67,7 @@ pub struct MessageAt {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct MeetRequest {
+pub struct EventRequest {
     pub id: String,
     pub guild_id: Id<GuildMarker>,
     pub forum_id: Id<ChannelMarker>,

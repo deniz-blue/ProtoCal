@@ -3,7 +3,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 
-use crate::meet::index::etag_of;
+use crate::event::index::etag_of;
 
 pub const OPEN_EVNT_MEDIA_TYPE: &str = "application/vnd.evnt+json";
 pub const JSON_MEDIA_TYPE: &str = "application/json; charset=utf-8";

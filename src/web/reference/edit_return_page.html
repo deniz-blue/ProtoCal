@@ -1,71 +1,261 @@
 <!doctype html>
-	<html lang="en">
-		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<meta name="referrer" content="no-referrer" />
-		<title>ProtoCal</title>
-		<style>
-			:root {
-				color-scheme: dark;
-				accent-color: #b48cff;
-			}
-			body {
-				background: #000;
-				color: #ddd;
-				font:
-					17px/1.5 system-ui,
-					sans-serif;
-				margin: 0;
-				padding: 2rem 1.5rem;
-			}
-			a {
-				color: #b48cff;
-			}
-			h1 {
-				font-size: 1.4rem;
-				margin: 0 0 1.5rem;
-			}
-			h2 {
-				font-size: 1.1rem;
-				margin: 1.5rem 0 0.25rem;
-			}
-			.hint {
-				color: #888;
-				font-size: 0.85em;
-			}
-			table {
-				border-collapse: collapse;
-				margin: 0.75rem 0 1.25rem;
-			}
-			th {
-				color: #888;
-				font-weight: normal;
-				text-align: left;
-			}
-			th,
-			td {
-				padding: 0.35rem 1.25rem 0.35rem 0;
-				vertical-align: top;
-			}
-			select,
-			button {
-				font: inherit;
-				color: inherit;
-				background: #111;
-				border: 1px solid #333;
-				border-radius: 6px;
-				padding: 0.3rem 0.5rem;
-			}
-			button {
-				background: #b48cff;
-				color: #000;
-				border: 0;
-				padding: 0.4rem 1.2rem;
-				cursor: pointer;
-			}
-		</style>
-		<p id="status">Saving…</p>
-<p><a id="back" hidden>Back to the post</a></p>
+<html lang="en">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="referrer" content="no-referrer" />
+<title>ProtoCal</title>
+<link rel="preload" href="/fonts/lexend.woff2" as="font" type="font/woff2" crossorigin />
+<style>
+@font-face {
+	font-family: Lexend;
+	src: url("/fonts/lexend.woff2") format("woff2");
+	font-weight: 100 900;
+	font-display: block;
+}
+:root {
+	color-scheme: dark;
+	accent-color: #b48cff;
+	--accent: #b48cff;
+	--text: #f2f2f2;
+	--muted: #8e8e93;
+	--warning: #f5b35b;
+	--surface: #1c1c1e;
+	--raised: #2c2c2e;
+	--line: #2e2e32;
+}
+* {
+	box-sizing: border-box;
+}
+body {
+	background: #000;
+	color: var(--text);
+	font:
+		17px/1.4 Lexend,
+		system-ui,
+		sans-serif;
+	font-variant-numeric: tabular-nums;
+	max-width: 560px;
+	margin: 0 auto;
+	padding: 0 16px;
+	-webkit-tap-highlight-color: transparent;
+}
+a {
+	color: var(--accent);
+	text-decoration: none;
+}
+h1 {
+	font-size: 28px;
+	font-weight: 600;
+	margin: 32px 16px 24px;
+	overflow-wrap: anywhere;
+}
+h2 {
+	color: var(--muted);
+	font-size: 15px;
+	font-weight: 400;
+	margin: 0 16px 8px;
+}
+:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: -2px;
+}
+.empty {
+	color: var(--muted);
+	margin: 0 16px;
+}
+.forum {
+	background: var(--surface);
+	border-radius: 14px;
+	margin-bottom: 12px;
+	overflow: hidden;
+}
+.row {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	min-height: 56px;
+	margin: 0;
+	padding: 4px 16px;
+	overflow-wrap: anywhere;
+}
+.row > span {
+	flex: 1;
+	min-width: 0;
+}
+label.row,
+a.row {
+	cursor: pointer;
+}
+@media (hover: hover) {
+	label.row:hover,
+	a.row:hover {
+		background-color: #242426;
+	}
+}
+.note {
+	display: block;
+	color: var(--muted);
+	font-size: 14px;
+}
+.warning {
+	color: var(--warning);
+}
+.row:has(option[value=""]:checked) + .warning {
+	display: none;
+}
+.details {
+	display: grid;
+	grid-template-rows: 0fr;
+	visibility: hidden;
+	transition:
+		grid-template-rows 0.2s ease,
+		visibility 0.2s;
+}
+.details > div {
+	min-height: 0;
+	overflow: hidden;
+}
+.forum:has(.switch:checked) .details {
+	grid-template-rows: 1fr;
+	visibility: visible;
+}
+.details .row {
+	background-image: linear-gradient(var(--line), var(--line));
+	background-position: 16px 0;
+	background-size: 100% 1px;
+	background-repeat: no-repeat;
+}
+.switch {
+	appearance: none;
+	flex: none;
+	position: relative;
+	width: 46px;
+	height: 28px;
+	margin: 0;
+	border-radius: 14px;
+	background: #3a3a3c;
+	cursor: pointer;
+	transition: background-color 0.2s;
+}
+.switch::before {
+	content: "";
+	position: absolute;
+	top: 3px;
+	left: 3px;
+	width: 22px;
+	height: 22px;
+	border-radius: 50%;
+	background: #fff;
+	transition: translate 0.2s;
+}
+.switch:checked {
+	background: var(--accent);
+}
+.switch:checked::before {
+	translate: 18px 0;
+}
+select {
+	appearance: none;
+	flex: none;
+	max-width: 100%;
+	min-height: 48px;
+	margin-right: -4px;
+	padding: 0 36px 0 12px;
+	border: 4px solid transparent;
+	border-radius: 14px;
+	background: var(--raised)
+		url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%238e8e93' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+		no-repeat right 12px center / 12px 8px;
+	background-clip: padding-box;
+	color: var(--text);
+	font: inherit;
+	cursor: pointer;
+}
+button,
+.button {
+	display: grid;
+	place-items: center;
+	width: 100%;
+	min-height: 50px;
+	padding: 0 16px;
+	border: 0;
+	border-radius: 12px;
+	background: var(--accent);
+	color: #000;
+	font: inherit;
+	font-weight: 600;
+	cursor: pointer;
+}
+button > *,
+button::after {
+	grid-area: 1 / 1;
+}
+.bar {
+	position: sticky;
+	bottom: 0;
+	margin: 0 -16px;
+	padding: 12px 16px max(12px, env(safe-area-inset-bottom));
+	background: rgb(0 0 0 / 0.6);
+	-webkit-backdrop-filter: blur(16px) saturate(1.6);
+	backdrop-filter: blur(16px) saturate(1.6);
+}
+.saved button {
+	background: var(--raised);
+	color: var(--muted);
+}
+form:not(.saved) .when-saved,
+.saved .when-unsaved,
+.busy button > * {
+	visibility: hidden;
+}
+.busy button::after,
+.spinner {
+	content: "";
+	display: block;
+	width: 24px;
+	height: 24px;
+	border: 2.5px solid currentColor;
+	border-right-color: transparent;
+	border-radius: 50%;
+	animation: spin 0.8s linear infinite;
+}
+.spinner {
+	width: 32px;
+	height: 32px;
+	border-width: 3px;
+	color: var(--accent);
+}
+@keyframes spin {
+	to {
+		rotate: 1turn;
+	}
+}
+.return {
+	display: grid;
+	align-content: center;
+	justify-items: center;
+	gap: 16px;
+	min-height: 100dvh;
+	text-align: center;
+}
+.return p {
+	display: grid;
+	place-items: center;
+	min-height: 3em;
+	margin: 0;
+	font-size: 20px;
+}
+.return .button {
+	max-width: 360px;
+}
+.return .button:not([href]) {
+	visibility: hidden;
+}
+</style>
+<main class="return">
+	<p id="status"><span class="spinner" role="status" aria-label="Saving"></span></p>
+	<a class="button" id="back">Back to the post</a>
+</main>
 <script>
 	const fragment = new URLSearchParams(location.hash.slice(1));
 	history.replaceState(null, "", location.pathname);
@@ -85,11 +275,10 @@
 			status.textContent = answer.message;
 			if (answer.threadUrl) {
 				back.href = answer.threadUrl;
-				back.hidden = false;
 			}
 		})
 		.catch(() => {
 			status.textContent = "ProtoCal could not be reached, so nothing was saved.";
 		});
 </script>
-	</html> 
+</html>

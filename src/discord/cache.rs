@@ -14,7 +14,7 @@ use twilight_model::{
     },
 };
 
-use crate::meet::attend_reaction::ReactionEmoji;
+use crate::event::attend_reaction::ReactionEmoji;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct CachedRole {

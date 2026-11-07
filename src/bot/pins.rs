@@ -20,10 +20,10 @@ pub async fn pin_role_mention(bot: &Bot, message: &MessageCreate) -> anyhow::Res
     if message.author.bot || message.mention_roles.is_empty() {
         return Ok(());
     }
-    let Some(meet) = bot.db.meet_of_thread(message.channel_id)? else {
+    let Some(event) = bot.db.event_of_thread(message.channel_id)? else {
         return Ok(());
     };
-    if !message.mention_roles.contains(&meet.role_id) {
+    if !message.mention_roles.contains(&event.role_id) {
         return Ok(());
     }
     let only_the_ping = ONLY_ROLE_MENTIONS.is_match(&message.content);

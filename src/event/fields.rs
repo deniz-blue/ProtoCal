@@ -1,13 +1,13 @@
 use serde_json::{Map, Value, json};
 
 use super::document::{
-    DESCRIPTION_TYPE, MeetField, MeetFieldProblem, is_description, meet_description_of,
-    meet_name_of, meet_place_of, validate_meet_document,
+    DESCRIPTION_TYPE, EventField, EventFieldProblem, event_description_of,
+    event_name_of, event_place_of, is_description, validate_event_document,
 };
 use super::written_date::{partial_date_of_written, written_of_partial_date};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct MeetFields {
+pub struct EventFields {
     pub name: String,
     pub start: Option<String>,
     pub end: Option<String>,
@@ -15,7 +15,7 @@ pub struct MeetFields {
     pub description: Option<String>,
 }
 
-pub fn fields_of_meet_document(document: &Value) -> MeetFields {
+pub fn fields_of_event_document(document: &Value) -> EventFields {
     let first = document.get("occurrences").and_then(|all| all.get(0));
     let written = |name: &str| {
         first
@@ -23,12 +23,12 @@ pub fn fields_of_meet_document(document: &Value) -> MeetFields {
             .and_then(Value::as_str)
             .map(written_of_partial_date)
     };
-    MeetFields {
-        name: meet_name_of(document),
+    EventFields {
+        name: event_name_of(document),
         start: written("start"),
         end: written("end"),
-        place: meet_place_of(document),
-        description: meet_description_of(document),
+        place: event_place_of(document),
+        description: event_description_of(document),
     }
 }
 
@@ -100,8 +100,8 @@ fn components_with(
     (!changed.is_empty()).then_some(Value::Array(changed))
 }
 
-fn unreadable_date(field: MeetField, written: &str) -> MeetFieldProblem {
-    MeetFieldProblem {
+fn unreadable_date(field: EventField, written: &str) -> EventFieldProblem {
+    EventFieldProblem {
         field: Some(field),
         message: format!(
             "{}: `{written}` is not a date I can read. Write it as `2026-12-05 18:00`, `2026-12-05` for a whole day, or `2026-12` for a month.",
@@ -110,7 +110,7 @@ fn unreadable_date(field: MeetField, written: &str) -> MeetFieldProblem {
     }
 }
 
-fn read_date(field: MeetField, written: Option<&str>) -> Result<Option<String>, MeetFieldProblem> {
+fn read_date(field: EventField, written: Option<&str>) -> Result<Option<String>, EventFieldProblem> {
     match written {
         None => Ok(None),
         Some(written) => partial_date_of_written(written)
@@ -119,16 +119,16 @@ fn read_date(field: MeetField, written: Option<&str>) -> Result<Option<String>, 
     }
 }
 
-pub fn meet_document_of_fields(fields: &MeetFields, base: &Value) -> Result<Value, MeetFieldProblem> {
-    let start = read_date(MeetField::Start, fields.start.as_deref())?;
-    let end = read_date(MeetField::End, fields.end.as_deref())?;
+pub fn event_document_of_fields(fields: &EventFields, base: &Value) -> Result<Value, EventFieldProblem> {
+    let start = read_date(EventField::Start, fields.start.as_deref())?;
+    let end = read_date(EventField::End, fields.end.as_deref())?;
     if end.is_some() && start.is_none() {
-        return Err(MeetFieldProblem {
-            field: Some(MeetField::Start),
+        return Err(EventFieldProblem {
+            field: Some(EventField::Start),
             message: "An end needs a start as well.".to_owned(),
         });
     }
-    let shown = fields_of_meet_document(base);
+    let shown = fields_of_event_document(base);
     let mut document = base.as_object().cloned().unwrap_or_default();
     if fields.name != shown.name {
         document.insert("name".to_owned(), json!({ "und": fields.name }));
@@ -145,6 +145,6 @@ pub fn meet_document_of_fields(fields: &MeetFields, base: &Value) -> Result<Valu
     set_or_remove(&mut document, "components", components);
     document.retain(|_, value| !value.is_null());
     let document = Value::Object(document);
-    validate_meet_document(&document)?;
+    validate_event_document(&document)?;
     Ok(document)
 }

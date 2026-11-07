@@ -5,7 +5,7 @@ use std::sync::{
 
 use twilight_gateway::{CloseFrame, Config, Event, EventTypeFlags, Shard, StreamExt as _};
 
-use crate::bot::{Bot, clock::MeetClock};
+use crate::bot::{Bot, clock::EventClock};
 
 static SHUTTING_DOWN: AtomicBool = AtomicBool::new(false);
 
@@ -40,7 +40,7 @@ async fn run_shard(mut shard: Shard, bot: Arc<Bot>) {
         };
         if let Event::Ready(ready) = &event {
             tracing::info!(user = %ready.user.name, "Ready");
-            MeetClock::check_now(&bot);
+            EventClock::check_now(&bot);
         }
         let bot = Arc::clone(&bot);
         tokio::spawn(async move {
