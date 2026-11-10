@@ -163,6 +163,10 @@ impl GuildCache {
         self.lock().channels.get(&channel_id).cloned()
     }
 
+    pub fn role(&self, guild_id: Id<GuildMarker>, role_id: Id<RoleMarker>) -> Option<CachedRole> {
+        self.lock().guilds.get(&guild_id)?.roles.get(&role_id).cloned()
+    }
+
     pub fn channels_of_guild(&self, guild_id: Id<GuildMarker>, kind: ChannelType) -> Vec<CachedChannel> {
         let mut channels: Vec<CachedChannel> = self
             .lock()

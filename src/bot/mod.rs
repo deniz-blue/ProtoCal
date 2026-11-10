@@ -16,7 +16,10 @@ pub mod guild_config;
 mod interactions;
 mod pins;
 
-use std::{collections::HashMap, sync::Mutex};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 
 use twilight_gateway::{Event, Intents};
 use twilight_http::Client;
@@ -53,7 +56,7 @@ pub struct EditGrant {
 }
 
 pub struct Bot {
-    pub http: Client,
+    pub http: Arc<Client>,
     pub application_id: Id<ApplicationMarker>,
     pub user_id: Id<UserMarker>,
     pub db: Database,
@@ -63,13 +66,14 @@ pub struct Bot {
     pub links: Links,
     pub config_grants: GrantStore<ConfigGrant>,
     pub edit_grants: GrantStore<EditGrant>,
+    pending_thread_renames: event_lifecycle_edit::PendingThreadRenames,
     rejected_drafts: Mutex<HashMap<String, EventFields>>,
 }
 
 impl Bot {
     pub fn new(http: Client, application_id: Id<ApplicationMarker>, user_id: Id<UserMarker>, db: Database, links: Links) -> Self {
         Self {
-            http,
+            http: Arc::new(http),
             application_id,
             user_id,
             db,
@@ -79,6 +83,7 @@ impl Bot {
             links,
             config_grants: GrantStore::default(),
             edit_grants: GrantStore::default(),
+            pending_thread_renames: event_lifecycle_edit::PendingThreadRenames::default(),
             rejected_drafts: Mutex::new(HashMap::new()),
         }
     }
