@@ -112,7 +112,7 @@ impl GuildCache {
             }
             Event::GuildUpdate(update) => {
                 if let Some(guild) = self.get_known_mut().guilds.get_mut(&update.id) {
-                    guild.name = update.name.clone();
+                    guild.name.clone_from(&update.name);
                     guild.owner_id = update.owner_id;
                 }
             }
