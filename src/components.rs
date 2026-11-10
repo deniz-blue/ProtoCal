@@ -81,24 +81,24 @@ pub fn component_count(components: &[Component]) -> usize {
         .sum()
 }
 
-pub fn text_displays(components: &[Component]) -> Vec<String> {
+pub fn text_displays(components: &[Component]) -> Vec<&str> {
     components
         .iter()
         .flat_map(|component| match component {
             Component::Container(container) => text_displays(&container.components),
-            Component::TextDisplay(text) => vec![text.content.clone()],
+            Component::TextDisplay(text) => vec![text.content.as_str()],
             _ => vec![],
         })
         .collect()
 }
 
 #[cfg(test)]
-pub fn button_labels(components: &[Component]) -> Vec<String> {
+pub fn button_labels(components: &[Component]) -> Vec<&str> {
     components
         .iter()
         .flat_map(|component| match component {
             Component::ActionRow(row) => button_labels(&row.components),
-            Component::Button(button) => button.label.clone().into_iter().collect(),
+            Component::Button(button) => button.label.as_deref().into_iter().collect(),
             _ => vec![],
         })
         .collect()

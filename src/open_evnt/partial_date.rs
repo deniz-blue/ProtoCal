@@ -146,7 +146,7 @@ fn instant_of_wall_clock(wall: i64, time_zone: &TimeZone) -> i64 {
     let offset_after = offset_at(wall + MILLISECONDS_PER_DAY, time_zone);
     [wall - offset_before, wall - offset_after]
         .into_iter()
-        .filter(|instant| instant + offset_at(*instant, time_zone) == wall)
+        .filter(|&instant| instant + offset_at(instant, time_zone) == wall)
         .min()
         .unwrap_or(wall - offset_before)
 }
