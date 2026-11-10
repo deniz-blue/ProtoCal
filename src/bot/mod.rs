@@ -18,7 +18,7 @@ mod pins;
 
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex},
+    sync::{Arc, RwLock},
 };
 
 use twilight_gateway::{Event, Intents};
@@ -67,7 +67,7 @@ pub struct Bot {
     pub config_grants: GrantStore<ConfigGrant>,
     pub edit_grants: GrantStore<EditGrant>,
     pending_thread_renames: event_lifecycle_edit::PendingThreadRenames,
-    rejected_drafts: Mutex<HashMap<String, EventFields>>,
+    rejected_drafts: RwLock<HashMap<String, EventFields>>,
 }
 
 impl Bot {
@@ -84,7 +84,7 @@ impl Bot {
             config_grants: GrantStore::default(),
             edit_grants: GrantStore::default(),
             pending_thread_renames: event_lifecycle_edit::PendingThreadRenames::default(),
-            rejected_drafts: Mutex::default(),
+            rejected_drafts: RwLock::default(),
         }
     }
 
@@ -166,18 +166,22 @@ impl Bot {
     }
 
     pub fn rejected_draft_of(&self, user_id: Id<UserMarker>, target: &str) -> Option<EventFields> {
-        self.drafts().get(&format!("{user_id}:{target}")).cloned()
+        self.get_drafts().get(&format!("{user_id}:{target}")).cloned()
     }
 
     pub fn reject_draft_of(&self, user_id: Id<UserMarker>, target: &str, fields: EventFields) {
-        self.drafts().insert(format!("{user_id}:{target}"), fields);
+        self.get_drafts_mut().insert(format!("{user_id}:{target}"), fields);
     }
 
     pub fn forget_rejected_draft(&self, user_id: Id<UserMarker>, target: &str) {
-        self.drafts().remove(&format!("{user_id}:{target}"));
+        self.get_drafts_mut().remove(&format!("{user_id}:{target}"));
     }
 
-    fn drafts(&self) -> std::sync::MutexGuard<'_, HashMap<String, EventFields>> {
-        self.rejected_drafts.lock().expect("draft lock poisoned")
+    fn get_drafts(&self) -> std::sync::RwLockReadGuard<'_, HashMap<String, EventFields>> {
+        self.rejected_drafts.read().expect("draft lock poisoned")
+    }
+
+    fn get_drafts_mut(&self) -> std::sync::RwLockWriteGuard<'_, HashMap<String, EventFields>> {
+        self.rejected_drafts.write().expect("draft lock poisoned")
     }
 }

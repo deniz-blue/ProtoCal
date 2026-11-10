@@ -1,6 +1,6 @@
 use std::{
     collections::HashSet,
-    sync::{Mutex, MutexGuard},
+    sync::{RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
 use twilight_gateway::Event;
@@ -11,7 +11,7 @@ use twilight_model::{
 
 #[derive(Default)]
 pub struct BotUsers {
-    seen: Mutex<HashSet<Id<UserMarker>>>,
+    seen: RwLock<HashSet<Id<UserMarker>>>,
 }
 
 impl BotUsers {
@@ -20,27 +20,31 @@ impl BotUsers {
             Event::GuildCreate(guild) => {
                 if let GuildCreate::Available(guild) = guild.as_ref() {
                     let bots = guild.members.iter().map(|member| &member.user).filter(|user| user.bot);
-                    self.seen().extend(bots.map(|user| user.id));
+                    self.get_seen_mut().extend(bots.map(|user| user.id));
                 }
             }
             Event::ReactionAdd(reaction) => {
                 if let Some(member) = reaction.member.as_ref().filter(|member| member.user.bot) {
-                    self.seen().insert(member.user.id);
+                    self.get_seen_mut().insert(member.user.id);
                 }
             }
             Event::MessageCreate(message) if message.author.bot => {
-                self.seen().insert(message.author.id);
+                self.get_seen_mut().insert(message.author.id);
             }
             _ => {}
         }
     }
 
     pub fn is_bot(&self, user_id: Id<UserMarker>) -> bool {
-        self.seen().contains(&user_id)
+        self.get_seen().contains(&user_id)
     }
 
-    fn seen(&self) -> MutexGuard<'_, HashSet<Id<UserMarker>>> {
-        self.seen.lock().expect("bot user lock poisoned")
+    fn get_seen(&self) -> RwLockReadGuard<'_, HashSet<Id<UserMarker>>> {
+        self.seen.read().expect("bot user lock poisoned")
+    }
+
+    fn get_seen_mut(&self) -> RwLockWriteGuard<'_, HashSet<Id<UserMarker>>> {
+        self.seen.write().expect("bot user lock poisoned")
     }
 }
 
