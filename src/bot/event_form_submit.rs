@@ -17,6 +17,7 @@ use crate::{
         document::new_event_document,
         fields::{EventFields, event_document_of_fields},
         post::EventFormTarget,
+        written_date::today_in_event_time_zone,
     },
 };
 
@@ -27,7 +28,7 @@ pub struct SubmittedForm {
 
 async fn submit_new_event(bot: &Bot, answer: &Answer<'_>, forum_id: Id<ChannelMarker>, form: SubmittedForm) -> anyhow::Result<()> {
     let base = new_event_document("urn:uuid:draft", &form.fields.name);
-    let document = match event_document_of_fields(&form.fields, &base) {
+    let document = match event_document_of_fields(&form.fields, &base, today_in_event_time_zone()) {
         Ok(document) => document,
         Err(problem) => return reject_draft(bot, answer, &form.target, form.fields, &problem.message).await,
     };
@@ -61,7 +62,7 @@ pub async fn submit_event_form(bot: &Bot, answer: &Answer<'_>, target: EventForm
     let Some(event) = event.filter(|event| may_edit_event(answer, &event.organizers)) else {
         return answer.reply_privately(Reply::text(ONLY_HOST_OR_STAFF)).await;
     };
-    let document = match event_document_of_fields(&form.fields, &event.document) {
+    let document = match event_document_of_fields(&form.fields, &event.document, today_in_event_time_zone()) {
         Ok(document) => document,
         Err(problem) => return reject_draft(bot, answer, &form.target, form.fields, &problem.message).await,
     };

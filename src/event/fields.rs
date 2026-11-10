@@ -1,32 +1,26 @@
+use jiff::civil::Date;
 use serde_json::{Map, Value, json};
 
 use super::document::{
     DESCRIPTION_TYPE, EventField, EventFieldProblem, event_description_of,
     event_name_of, event_place_of, is_description, validate_event_document,
 };
-use super::written_date::{partial_date_of_written, written_of_partial_date};
+use super::written_date::{partial_dates_of_written, written_of_partial_dates};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EventFields {
     pub name: String,
-    pub start: Option<String>,
-    pub end: Option<String>,
+    pub date: Option<String>,
     pub place: Option<String>,
     pub description: Option<String>,
 }
 
 pub fn fields_of_event_document(document: &Value) -> EventFields {
     let first = document.get("occurrences").and_then(|all| all.get(0));
-    let written = |name: &str| {
-        first
-            .and_then(|occurrence| occurrence.get(name))
-            .and_then(Value::as_str)
-            .map(written_of_partial_date)
-    };
+    let partial_date = |name: &str| first.and_then(|occurrence| occurrence.get(name)).and_then(Value::as_str);
     EventFields {
         name: event_name_of(document),
-        start: written("start"),
-        end: written("end"),
+        date: partial_date("start").map(|start| written_of_partial_dates(start, partial_date("end"))),
         place: event_place_of(document),
         description: event_description_of(document),
     }
@@ -100,34 +94,21 @@ fn components_with(
     (!changed.is_empty()).then_some(Value::Array(changed))
 }
 
-fn unreadable_date(field: EventField, written: &str) -> EventFieldProblem {
-    EventFieldProblem {
-        field: Some(field),
+fn read_dates(written: Option<&str>, today: Date) -> Result<(Option<String>, Option<String>), EventFieldProblem> {
+    let Some(written) = written else {
+        return Ok((None, None));
+    };
+    let dates = partial_dates_of_written(written, today).ok_or_else(|| EventFieldProblem {
+        field: Some(EventField::Date),
         message: format!(
-            "{}: `{written}` is not a date I can read. Write it as `2026-12-05 18:00`, `2026-12-05` for a whole day, or `2026-12` for a month.",
-            field.label()
+            "Date: `{written}` is not a date I can read. Try `12 October 18:00`, `12.10 18:00 - 22:00`, `5-7 December` or `2026-12`."
         ),
-    }
+    })?;
+    Ok((Some(dates.start), dates.end))
 }
 
-fn read_date(field: EventField, written: Option<&str>) -> Result<Option<String>, EventFieldProblem> {
-    match written {
-        None => Ok(None),
-        Some(written) => partial_date_of_written(written)
-            .map(Some)
-            .ok_or_else(|| unreadable_date(field, written)),
-    }
-}
-
-pub fn event_document_of_fields(fields: &EventFields, base: &Value) -> Result<Value, EventFieldProblem> {
-    let start = read_date(EventField::Start, fields.start.as_deref())?;
-    let end = read_date(EventField::End, fields.end.as_deref())?;
-    if end.is_some() && start.is_none() {
-        return Err(EventFieldProblem {
-            field: Some(EventField::Start),
-            message: "An end needs a start as well.".to_owned(),
-        });
-    }
+pub fn event_document_of_fields(fields: &EventFields, base: &Value, today: Date) -> Result<Value, EventFieldProblem> {
+    let (start, end) = read_dates(fields.date.as_deref(), today)?;
     let shown = fields_of_event_document(base);
     let mut document = base.as_object().cloned().unwrap_or_default();
     if fields.name != shown.name {

@@ -1,3 +1,4 @@
+use jiff::civil::Date;
 use serde_json::{Value, json};
 
 use super::{
@@ -15,8 +16,7 @@ fn unix(iso: &str) -> i64 {
 
 #[derive(Default)]
 struct Changed<'a> {
-    start: Option<&'a str>,
-    end: Option<&'a str>,
+    date: Option<&'a str>,
     place: Option<&'a str>,
     description: Option<&'a str>,
 }
@@ -24,15 +24,18 @@ struct Changed<'a> {
 fn fields(changed: Changed) -> EventFields {
     EventFields {
         name: "Bar meet".to_owned(),
-        start: changed.start.map(str::to_owned),
-        end: changed.end.map(str::to_owned),
+        date: changed.date.map(str::to_owned),
         place: changed.place.map(str::to_owned),
         description: changed.description.map(str::to_owned),
     }
 }
 
+fn today() -> Date {
+    Date::new(2026, 11, 10).unwrap()
+}
+
 fn document_on(changed: Changed, base: &Value) -> Value {
-    event_document_of_fields(&fields(changed), base).unwrap()
+    event_document_of_fields(&fields(changed), base, today()).unwrap()
 }
 
 fn document_of(changed: Changed) -> Value {
@@ -40,14 +43,13 @@ fn document_of(changed: Changed) -> Value {
 }
 
 fn problem_of(changed: Changed) -> EventFieldProblem {
-    event_document_of_fields(&fields(changed), &new_event_document(ID, "Bar meet")).unwrap_err()
+    event_document_of_fields(&fields(changed), &new_event_document(ID, "Bar meet"), today()).unwrap_err()
 }
 
 #[test]
 fn the_form_makes_a_valid_open_evnt_document() {
     let document = document_of(Changed {
-        start: Some("2026-12-05 18:00"),
-        end: Some("2026-12-06 02:00"),
+        date: Some("2026-12-05 18:00 - 02:00"),
         place: Some("Snekutis, Vilnius"),
         description: Some("Bring snacks"),
     });
@@ -68,16 +70,13 @@ fn the_form_makes_a_valid_open_evnt_document() {
 
 #[test]
 fn dates_that_do_not_exist_or_an_end_before_the_start_are_refused_with_the_field() {
-    let start = Some(EventField::Start);
-    assert_eq!(problem_of(Changed { start: Some("2026-02-30"), ..Default::default() }).field, start);
-    let backwards = Changed { start: Some("2026-12-05 18:00"), end: Some("2026-12-05 17:00"), ..Default::default() };
-    assert_eq!(problem_of(backwards).field, start);
-    assert_eq!(problem_of(Changed { end: Some("2026-12-05"), ..Default::default() }).field, start);
-    assert_eq!(problem_of(Changed { start: Some("next friday"), ..Default::default() }).field, start);
-    assert_eq!(
-        problem_of(Changed { start: Some("2026-02-30"), ..Default::default() }).message,
-        "Start must be a PartialDate such as 2026-06-15T09:00[Europe/Vilnius]."
-    );
+    let date = Some(EventField::Date);
+    let impossible = problem_of(Changed { date: Some("2026-02-30"), ..Default::default() });
+    assert_eq!(impossible.field, date);
+    assert!(impossible.message.starts_with("Date: `2026-02-30` is not a date I can read."));
+    assert_eq!(problem_of(Changed { date: Some("someday"), ..Default::default() }).field, date);
+    let backwards = problem_of(Changed { date: Some("2026-12-05 18:00 - 2026-12-04 17:00"), ..Default::default() });
+    assert_eq!((backwards.field, backwards.message.as_str()), (date, "The start must not be after end."));
 }
 
 #[test]
@@ -98,24 +97,23 @@ fn the_form_shows_what_the_document_holds_and_saving_it_unchanged_keeps_the_docu
         shown,
         EventFields {
             name: "Bar meet".to_owned(),
-            start: Some("2026-12-05 18:00".to_owned()),
-            end: None,
+            date: Some("2026-12-05 18:00".to_owned()),
             place: Some("Stiklių g. 7, Vilnius".to_owned()),
             description: None,
         }
     );
-    assert_eq!(event_document_of_fields(&shown, &from_an_app).unwrap(), from_an_app);
+    assert_eq!(event_document_of_fields(&shown, &from_an_app, today()).unwrap(), from_an_app);
 }
 
 #[test]
 fn a_changed_start_keeps_the_other_dates_and_a_changed_place_keeps_the_venue_name() {
-    let base = document_of(Changed { start: Some("2026-12-05 18:00"), ..Default::default() });
+    let base = document_of(Changed { date: Some("2026-12-05 18:00"), ..Default::default() });
     let mut two_dates = base.clone();
     two_dates["occurrences"]
         .as_array_mut()
         .unwrap()
         .push(json!({ "start": "2026-12-12T18:00[Europe/Vilnius]" }));
-    let moved = document_on(Changed { start: Some("2026-12-05 19:00"), ..Default::default() }, &two_dates);
+    let moved = document_on(Changed { date: Some("2026-12-05 19:00"), ..Default::default() }, &two_dates);
     assert_eq!(
         moved["occurrences"],
         json!([
@@ -125,7 +123,7 @@ fn a_changed_start_keeps_the_other_dates_and_a_changed_place_keeps_the_venue_nam
     );
     let mut named = base.clone();
     named["venue"] = json!({ "name": { "en": "Snekutis" }, "address": "Stiklių g. 7" });
-    let moved_place = Changed { start: Some("2026-12-05 18:00"), place: Some("Totorių g. 1"), ..Default::default() };
+    let moved_place = Changed { date: Some("2026-12-05 18:00"), place: Some("Totorių g. 1"), ..Default::default() };
     assert_eq!(
         document_on(moved_place, &named)["venue"],
         json!({ "name": { "en": "Snekutis" }, "address": "Totorių g. 1" })
@@ -135,17 +133,17 @@ fn a_changed_start_keeps_the_other_dates_and_a_changed_place_keeps_the_venue_nam
 #[test]
 fn dates_read_in_discord_a_time_a_whole_day_several_days_a_month() {
     let at = unix("2026-12-05T16:00:00Z");
-    let evening = document_of(Changed { start: Some("2026-12-05 18:00"), ..Default::default() });
+    let evening = document_of(Changed { date: Some("2026-12-05 18:00"), ..Default::default() });
     assert_eq!(event_dates_as_discord(&evening, true), Some(format!("<t:{at}:f> <t:{at}:R>")));
-    let until_late = document_of(Changed { start: Some("2026-12-05 18:00"), end: Some("2026-12-05 23:00"), ..Default::default() });
+    let until_late = document_of(Changed { date: Some("2026-12-05 18:00 - 2026-12-05 23:00"), ..Default::default() });
     let late = unix("2026-12-05T21:00:00Z");
     assert_eq!(event_dates_as_discord(&until_late, true), Some(format!("<t:{at}:f> – <t:{late}:t> <t:{at}:R>")));
-    let weekend = document_of(Changed { start: Some("2026-12-05"), end: Some("2026-12-07"), ..Default::default() });
+    let weekend = document_of(Changed { date: Some("2026-12-05 - 2026-12-07"), ..Default::default() });
     assert_eq!(
         event_dates_as_discord(&weekend, false).as_deref(),
         Some("Sat, 5 December 2026 – Mon, 7 December 2026")
     );
-    let month = document_of(Changed { start: Some("2026-12"), ..Default::default() });
+    let month = document_of(Changed { date: Some("2026-12"), ..Default::default() });
     assert_eq!(event_dates_as_discord(&month, true).as_deref(), Some("December 2026"));
     assert_eq!(event_dates_as_discord(&document_of(Changed::default()), true), None);
 }
@@ -153,18 +151,18 @@ fn dates_read_in_discord_a_time_a_whole_day_several_days_a_month() {
 #[test]
 fn an_event_is_over_a_day_after_it_ends_or_after_its_start_when_it_has_no_end() {
     let over = |changed| event_is_over_at(&document_of(changed));
-    assert_eq!(over(Changed { start: Some("2026-12-05 18:00"), ..Default::default() }), Some(unix("2026-12-06T16:00:00Z")));
-    assert_eq!(over(Changed { start: Some("2026-12-05"), ..Default::default() }), Some(unix("2026-12-06T22:00:00Z")));
-    let weekend = Changed { start: Some("2026-12-05"), end: Some("2026-12-07"), ..Default::default() };
+    assert_eq!(over(Changed { date: Some("2026-12-05 18:00"), ..Default::default() }), Some(unix("2026-12-06T16:00:00Z")));
+    assert_eq!(over(Changed { date: Some("2026-12-05"), ..Default::default() }), Some(unix("2026-12-06T22:00:00Z")));
+    let weekend = Changed { date: Some("2026-12-05 - 2026-12-07"), ..Default::default() };
     assert_eq!(over(weekend), Some(unix("2026-12-08T22:00:00Z")));
     assert_eq!(over(Changed::default()), None);
 }
 
 #[test]
 fn a_moved_time_or_place_pings_a_description_change_does_not_no_change_says_nothing() {
-    let planned = || Changed { start: Some("2026-12-05 18:00"), end: None, place: Some("Bar"), description: Some("Snacks") };
+    let planned = || Changed { date: Some("2026-12-05 18:00"), place: Some("Bar"), description: Some("Snacks") };
     let before = document_of(planned());
-    let moved = Changed { start: Some("2026-12-05 19:00"), place: Some("Park"), ..planned() };
+    let moved = Changed { date: Some("2026-12-05 19:00"), place: Some("Park"), ..planned() };
     let notice = event_change_notice(&before, &document_on(moved, &before)).unwrap();
     assert_eq!(
         notice.lines,

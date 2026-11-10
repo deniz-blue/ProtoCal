@@ -8,22 +8,9 @@ const SHOWN_LANGUAGES: [&str; 4] = ["mul", "und", "en", "lt"];
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum EventField {
     Name,
-    Start,
-    End,
+    Date,
     Place,
     Description,
-}
-
-impl EventField {
-    pub fn label(self) -> &'static str {
-        match self {
-            Self::Name => "Name",
-            Self::Start => "Start",
-            Self::End => "End",
-            Self::Place => "Place",
-            Self::Description => "Description",
-        }
-    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -68,18 +55,18 @@ pub fn event_name_of(document: &Value) -> String {
     text_of(document.get("name")).unwrap_or_default()
 }
 
-fn field_of_issue_path(path: &[PathSegment]) -> Option<EventField> {
+fn field_and_subject_of_issue_path(path: &[PathSegment]) -> Option<(EventField, &'static str)> {
     let key = |position: usize| match path.get(position) {
         Some(PathSegment::Key(key)) => Some(key.as_str()),
         _ => None,
     };
     match key(0)? {
-        "name" => Some(EventField::Name),
-        "venue" => Some(EventField::Place),
-        "components" => Some(EventField::Description),
+        "name" => Some((EventField::Name, "Name")),
+        "venue" => Some((EventField::Place, "Place")),
+        "components" => Some((EventField::Description, "Description")),
         "occurrences" if path.get(1) == Some(&PathSegment::Index(0)) => match key(2)? {
-            "start" => Some(EventField::Start),
-            "end" => Some(EventField::End),
+            "start" => Some((EventField::Date, "The start")),
+            "end" => Some((EventField::Date, "The end")),
             _ => None,
         },
         _ => None,
@@ -87,12 +74,12 @@ fn field_of_issue_path(path: &[PathSegment]) -> Option<EventField> {
 }
 
 fn problem_of_issue(issue: &Issue) -> EventFieldProblem {
-    let field = field_of_issue_path(&issue.path);
-    let message = match field {
-        Some(field) => format!("{} {}.", field.label(), issue.message),
-        None => format!("{}.", issue.message),
-    };
-    EventFieldProblem { field, message }
+    match field_and_subject_of_issue_path(&issue.path) {
+        Some((field, subject)) => {
+            EventFieldProblem { field: Some(field), message: format!("{subject} {}.", issue.message) }
+        }
+        None => EventFieldProblem { field: None, message: format!("{}.", issue.message) },
+    }
 }
 
 pub fn validate_event_document(document: &Value) -> Result<(), EventFieldProblem> {

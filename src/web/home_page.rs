@@ -40,7 +40,7 @@ pub fn home_page(application_id: Id<ApplicationMarker>) -> String {
 	<a class="button" href="{invite}">Add to a server</a>
 	<h2>Commands</h2>
 	<div class="surface">
-		<p class="row"><span>/event new<span class="note">A form asks for name, start, end, place and description.</span></span></p>
+		<p class="row"><span>/event new<span class="note">A form asks for name, date, place and description.</span></span></p>
 		<p class="row"><span>/event register<span class="note">Run inside the post, by its poster or staff. Only staff in a forum with review.</span></span></p>
 		<p class="row"><span>/event send-new-button<span class="note">Staff only. Posts a New event button in the channel. Text, emoji and color can be set.</span></span></p>
 		<p class="row"><span>/config<span class="note">Manage Server only. Sets event forums, announce role and review channel.</span></span></p>

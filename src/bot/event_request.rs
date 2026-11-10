@@ -25,6 +25,7 @@ use crate::{
         dates::event_is_over_at,
         fields::event_document_of_fields,
         request_view::{EventRequestOutcome, event_request_card, event_request_host_view},
+        written_date::today_in_event_time_zone,
     },
     records::{EventRequest, MessageAt, RequestState},
     time::now_unix_seconds,
@@ -143,7 +144,7 @@ pub async fn save_event_request_edit(bot: &Bot, answer: &Answer<'_>, id: &str, f
     let Some(editor) = editor_of_event_request(bot, &request, user_id).await else {
         return answer.tell(EDITORS_ONLY).await;
     };
-    let document = match event_document_of_fields(&form.fields, &request.document) {
+    let document = match event_document_of_fields(&form.fields, &request.document, today_in_event_time_zone()) {
         Ok(document) => document,
         Err(problem) => return reject_draft(bot, answer, &form.target, form.fields, &problem.message).await,
     };

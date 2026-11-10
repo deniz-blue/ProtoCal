@@ -20,8 +20,7 @@ use crate::{
 pub fn event_form_modal(target: &EventFormTarget, filled: Option<EventFields>) -> InteractionResponseData {
     let filled = filled.unwrap_or(EventFields {
         name: String::new(),
-        start: None,
-        end: None,
+        date: None,
         place: None,
         description: None,
     });
@@ -40,14 +39,7 @@ pub fn event_form_modal(target: &EventFormTarget, filled: Option<EventFields>) -
         title,
         vec![
             TextField { required: true, ..field("name", "Name", THREAD_NAME_MAX, Some(filled.name)) },
-            TextField {
-                placeholder: Some("2026-12-05 18:00, or 2026-12-05"),
-                ..field("start", "Start", 40, filled.start)
-            },
-            TextField {
-                placeholder: Some("2026-12-06 02:00, or 2026-12-07"),
-                ..field("end", "End", 40, filled.end)
-            },
+            TextField { placeholder: Some("12 October 18:00 - 22:00"), ..field("date", "Date", 100, filled.date) },
             field("place", "Place", 200, filled.place),
             TextField { paragraph: true, ..field("description", "Description", 1500, filled.description) },
         ],
@@ -57,8 +49,7 @@ pub fn event_form_modal(target: &EventFormTarget, filled: Option<EventFields>) -
 pub fn fields_of_submitted_event_form(data: &ModalInteractionData) -> EventFields {
     EventFields {
         name: submitted_value(data, "name").unwrap_or_default(),
-        start: submitted_value(data, "start"),
-        end: submitted_value(data, "end"),
+        date: submitted_value(data, "date"),
         place: submitted_value(data, "place"),
         description: submitted_value(data, "description"),
     }
