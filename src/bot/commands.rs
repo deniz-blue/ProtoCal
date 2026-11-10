@@ -34,7 +34,7 @@ use crate::{
 )]
 pub struct OpenConfig;
 
-fn manage_guild() -> Permissions {
+const fn manage_guild() -> Permissions {
     Permissions::MANAGE_GUILD
 }
 
@@ -89,7 +89,7 @@ pub enum ButtonColor {
 }
 
 impl ButtonColor {
-    fn style(&self) -> ButtonStyle {
+    const fn style(&self) -> ButtonStyle {
         match self {
             Self::Blurple => ButtonStyle::Primary,
             Self::Grey => ButtonStyle::Secondary,

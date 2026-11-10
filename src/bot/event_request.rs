@@ -35,7 +35,7 @@ pub const GONE: &str = "This request is gone: it was posted, withdrawn or ran ou
 const REVIEW_CHANNEL_UNREACHABLE: &str = "I could not post in this forum's review channel. Please tell staff.";
 const EDITORS_ONLY: &str = "Only the host or the moderators can edit this.";
 
-fn can_hold_messages(channel: &CachedChannel) -> bool {
+const fn can_hold_messages(channel: &CachedChannel) -> bool {
     !matches!(
         channel.kind,
         ChannelType::GuildCategory | ChannelType::GuildForum | ChannelType::GuildMedia | ChannelType::GuildDirectory

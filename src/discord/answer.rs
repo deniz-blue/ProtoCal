@@ -44,7 +44,7 @@ pub struct Answer<'a> {
 }
 
 impl<'a> Answer<'a> {
-    pub fn new(http: &'a Client, application_id: Id<ApplicationMarker>, interaction: &'a Interaction) -> Self {
+    pub const fn new(http: &'a Client, application_id: Id<ApplicationMarker>, interaction: &'a Interaction) -> Self {
         Self { http, application_id, interaction, state: RwLock::new(AnswerState::Unanswered) }
     }
 

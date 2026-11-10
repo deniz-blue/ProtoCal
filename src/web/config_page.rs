@@ -28,7 +28,7 @@ const SAVE_STATE_SCRIPT: &str = "<script>
 \taddEventListener(\"pageshow\", () => form.classList.remove(\"busy\"));
 </script>";
 
-fn shown_if(shown: bool, text: &str) -> &str {
+const fn shown_if(shown: bool, text: &str) -> &str {
     if shown { text } else { "" }
 }
 

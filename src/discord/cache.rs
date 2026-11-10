@@ -78,7 +78,7 @@ impl CachedChannel {
         }
     }
 
-    pub fn is_thread(&self) -> bool {
+    pub const fn is_thread(&self) -> bool {
         self.kind.is_thread()
     }
 }

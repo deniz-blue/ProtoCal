@@ -198,15 +198,15 @@ struct WrittenSide {
 }
 
 impl WrittenSide {
-    fn has_date(&self) -> bool {
+    const fn has_date(&self) -> bool {
         self.year.is_some() || self.month.is_some() || self.day.is_some()
     }
 
-    fn has_day(&self) -> bool {
+    const fn has_day(&self) -> bool {
         self.day.is_some() || self.weekday.is_some() || self.days_from_today.is_some()
     }
 
-    fn is_empty(&self) -> bool {
+    const fn is_empty(&self) -> bool {
         !self.has_date() && !self.has_day() && self.time.is_none() && self.lone_number.is_none()
     }
 

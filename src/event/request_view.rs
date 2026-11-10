@@ -40,7 +40,7 @@ pub enum EventRequestAction {
 }
 
 impl EventRequestAction {
-    fn as_str(self) -> &'static str {
+    const fn as_str(self) -> &'static str {
         match self {
             Self::Post => "post",
             Self::Decline => "decline",

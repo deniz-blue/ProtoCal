@@ -44,7 +44,7 @@ pub fn link_button(label: impl Into<String>, url: impl Into<String>) -> Componen
     })
 }
 
-pub fn row(components: Vec<Component>) -> Component {
+pub const fn row(components: Vec<Component>) -> Component {
     Component::ActionRow(ActionRow {
         id: None,
         components,
@@ -55,7 +55,7 @@ pub fn text_display(content: impl Into<String>) -> Component {
     Component::TextDisplay(TextDisplay { id: None, content: content.into() })
 }
 
-pub fn container(components: Vec<Component>) -> Component {
+pub const fn container(components: Vec<Component>) -> Component {
     Component::Container(Container { id: None, accent_color: None, spoiler: None, components })
 }
 

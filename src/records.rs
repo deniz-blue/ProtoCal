@@ -13,7 +13,7 @@ pub struct EventForum {
 }
 
 impl EventForum {
-    pub fn is_screened(&self) -> bool {
+    pub const fn is_screened(&self) -> bool {
         self.review_channel_id.is_some()
     }
 }
@@ -44,7 +44,7 @@ pub enum RequestState {
 }
 
 impl RequestState {
-    pub fn as_str(self) -> &'static str {
+    pub const fn as_str(self) -> &'static str {
         match self {
             Self::Waiting => "waiting",
             Self::Declined => "declined",

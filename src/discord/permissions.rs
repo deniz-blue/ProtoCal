@@ -22,7 +22,7 @@ fn role_permissions(guild: &CachedGuild, role_id: Id<RoleMarker>) -> Permissions
         .map_or(Permissions::empty(), |role| role.permissions)
 }
 
-fn everyone_role(guild: &CachedGuild) -> Id<RoleMarker> {
+const fn everyone_role(guild: &CachedGuild) -> Id<RoleMarker> {
     guild.id.cast()
 }
 

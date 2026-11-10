@@ -18,7 +18,7 @@ pub enum RequestMatch {
 }
 
 impl RequestMatch {
-    fn condition(self) -> &'static str {
+    const fn condition(self) -> &'static str {
         match self {
             Self::AnyState => "id = ?1",
             Self::OnlyIfWaiting => "id = ?1 AND state = 'waiting'",

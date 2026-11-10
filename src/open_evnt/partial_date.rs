@@ -62,7 +62,7 @@ impl PartialDate {
         Self::parse(text).is_some()
     }
 
-    pub fn precision(&self) -> Precision {
+    pub const fn precision(&self) -> Precision {
         match (self.month, self.day, self.hour_minute) {
             (_, _, Some(_)) => Precision::Time,
             (_, Some(_), None) => Precision::Day,
@@ -108,7 +108,7 @@ impl PartialDate {
     }
 }
 
-pub fn days_in_month(year: i32, month: i8) -> i8 {
+pub const fn days_in_month(year: i32, month: i8) -> i8 {
     match month {
         2 if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) => 29,
         2 => 28,
@@ -117,7 +117,7 @@ pub fn days_in_month(year: i32, month: i8) -> i8 {
     }
 }
 
-fn days_from_civil(year: i64, month: i64, day: i64) -> i64 {
+const fn days_from_civil(year: i64, month: i64, day: i64) -> i64 {
     let year = if month <= 2 { year - 1 } else { year };
     let era = year.div_euclid(400);
     let year_of_era = year - era * 400;
