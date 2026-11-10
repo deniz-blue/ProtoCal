@@ -17,10 +17,10 @@ pub fn shaped<'a>(shape: &'a ObjectShape<'a>) -> impl Fn(&Value, &Path, &mut Iss
     move |value, path, issues| object(shape, value, path, issues)
 }
 
-pub fn list<'a>(
-    item: &'a dyn Fn(&Value, &Path, &mut Issues),
+pub fn list(
+    item: &'_ dyn Fn(&Value, &Path, &mut Issues),
     non_empty: bool,
-) -> impl Fn(&Value, &Path, &mut Issues) + 'a {
+) -> impl Fn(&Value, &Path, &mut Issues) + '_ {
     move |value, path, issues| array_of(item, non_empty, value, path, issues)
 }
 
