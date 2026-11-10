@@ -7,7 +7,7 @@ use std::{
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use rand::RngCore as _;
 
-const GRANT_LIFETIME: Duration = Duration::from_secs(60 * 60);
+const GRANT_LIFETIME: Duration = Duration::from_mins(60);
 
 pub fn random_token() -> String {
     let mut bytes = [0u8; 24];

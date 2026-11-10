@@ -12,7 +12,7 @@ use tokio::sync::Notify;
 use super::{Bot, event_lifecycle::end_events_that_are_over, event_request::drop_event_requests_that_are_over};
 use crate::time::now_unix_seconds;
 
-const CHECK_EVERY: Duration = Duration::from_secs(15 * 60);
+const CHECK_EVERY: Duration = Duration::from_mins(15);
 
 #[derive(Default)]
 pub struct EventClock {
@@ -71,7 +71,7 @@ mod tests {
 
     use super::repeat_checks;
 
-    const PERIOD: Duration = Duration::from_secs(15 * 60);
+    const PERIOD: Duration = Duration::from_mins(15);
 
     async fn settle() {
         for _ in 0..10 {
