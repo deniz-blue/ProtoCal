@@ -4,11 +4,13 @@ use twilight_model::{
     id::{Id, marker::ChannelMarker},
 };
 
-use super::Bot;
+use super::{Bot, event_form::redraw_host_requests};
 use crate::{
     components::message_flags_of,
     discord::answer::Answer,
-    event::request_view::{EventRequestOutcome, MessageView, event_request_card, event_request_host_view},
+    event::request_view::{
+        EventRequestOutcome, MessageView, event_request_card, event_request_host_view, is_host_requests_list,
+    },
     records::{EventRequest, MessageAt},
 };
 
@@ -92,6 +94,10 @@ async fn show_to_host(bot: &Bot, answer: &Answer<'_>, request: &EventRequest, ou
     if request.host_dm.is_some() {
         edit_host_dm(bot, request, outcome).await;
     } else if answer.interaction.author_id() == Some(request.host_id) {
+        let pressed_in = answer.interaction.message.as_ref().map(|message| message.components.as_slice());
+        if pressed_in.is_some_and(is_host_requests_list) {
+            return redraw_host_requests(bot, answer, request.guild_id, request.host_id).await;
+        }
         let view = event_request_host_view(request, outcome, &bot.guild_name(request.guild_id));
         answer.edit_reply(view.into()).await?;
     }

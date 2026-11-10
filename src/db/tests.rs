@@ -168,6 +168,20 @@ fn a_reposted_card_moves_the_request_to_the_new_message() {
 }
 
 #[test]
+fn a_hosts_requests_are_those_in_the_guild_newest_first() {
+    let db = Database::in_memory();
+    let older = EventRequest { id: "older".to_owned(), updated_at: 1, ..request() };
+    let newer = EventRequest { id: "newer".to_owned(), updated_at: 2, ..request() };
+    let other_host = EventRequest { id: "other-host".to_owned(), host_id: Id::new(77), ..request() };
+    let other_guild = EventRequest { id: "other-guild".to_owned(), guild_id: Id::new(78), ..request() };
+    for request in [&older, &newer, &other_host, &other_guild] {
+        db.save_event_request(request).unwrap();
+    }
+    let ids: Vec<String> = db.event_requests_of_host(request().guild_id, request().host_id).unwrap().into_iter().map(|request| request.id).collect();
+    assert_eq!(ids, ["newer", "older"]);
+}
+
+#[test]
 fn a_calendar_link_is_found_by_person_and_by_token_and_replaced_in_place() {
     let db = Database::in_memory();
     let link = CalendarLink { user_id: Id::new(4), token: "abc".to_owned(), created_at: 1 };

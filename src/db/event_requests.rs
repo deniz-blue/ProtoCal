@@ -2,7 +2,7 @@ use rusqlite::{OptionalExtension as _, Row, params};
 use serde_json::Value;
 use twilight_model::id::{
     Id,
-    marker::{MessageMarker, UserMarker},
+    marker::{GuildMarker, MessageMarker, UserMarker},
 };
 
 use super::{Database, json_of, parsed, parsed_optional};
@@ -69,6 +69,16 @@ impl Database {
             db.prepare(&format!("SELECT {COLUMNS} FROM event_requests"))?
                 .query_map([], event_request_of_row)?
                 .collect()
+        })
+    }
+
+    pub fn event_requests_of_host(&self, guild_id: Id<GuildMarker>, host_id: Id<UserMarker>) -> anyhow::Result<Vec<EventRequest>> {
+        self.with(|db| {
+            db.prepare(&format!(
+                "SELECT {COLUMNS} FROM event_requests WHERE guild_id = ?1 AND host_id = ?2 ORDER BY updated_at DESC"
+            ))?
+            .query_map(params![guild_id.to_string(), host_id.to_string()], event_request_of_row)?
+            .collect()
         })
     }
 

@@ -34,7 +34,7 @@ While an event runs:
 
 A forum with a review channel is screened. A post made with `/event new` by someone without Manage Threads goes to that channel as a request. Moderators (people with Manage Threads in the forum) can Approve, Edit, Reply or Deny it. Reply sends the host a message, up to 1500 characters, in their DM as an answer to the bot's DM about the request. A denial can carry a reason, up to 300 characters, and the host sees it.
 
-The host can edit the request, withdraw it, or send it again after a denial. A host edit posts the card again at the bottom of the review channel and deletes the old one, so moderators see it as a new message. A request whose event date has passed is removed. A request still waiting is marked as expired first.
+The host can edit the request, withdraw it, or send it again after a denial. A host edit posts the card again at the bottom of the review channel and deletes the old one, so moderators see it as a new message. When the bot could not DM the host, `/event new` and the New event button first list that host's open requests in the server, with their state and buttons, and a New event button under them. Editing or withdrawing one from that list redraws the list. A request whose event date has passed is removed. A request still waiting is marked as expired first.
 
 A post made directly in a screened forum by someone without Manage Threads is not made an event. The bot says so in the post, and a moderator can make it one with `/event register`.
 

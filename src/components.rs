@@ -3,6 +3,8 @@ use twilight_model::channel::message::{
     component::{ActionRow, Button, ButtonStyle, Container, TextDisplay},
 };
 
+pub const COMPONENTS_MAX: usize = 40;
+
 pub fn emoji_of_text(text: &str) -> EmojiReactionType {
     let text = text.trim();
     let custom = text.strip_prefix('<').and_then(|rest| rest.strip_suffix('>')).and_then(|inner| {
@@ -65,7 +67,20 @@ pub fn message_flags_of(components: &[Component]) -> MessageFlags {
     }
 }
 
-#[cfg(test)]
+pub fn component_count(components: &[Component]) -> usize {
+    components
+        .iter()
+        .map(|component| {
+            1 + match component {
+                Component::ActionRow(row) => component_count(&row.components),
+                Component::Container(container) => component_count(&container.components),
+                Component::Section(section) => component_count(&section.components) + component_count(std::slice::from_ref(&*section.accessory)),
+                _ => 0,
+            }
+        })
+        .sum()
+}
+
 pub fn text_displays(components: &[Component]) -> Vec<String> {
     components
         .iter()
