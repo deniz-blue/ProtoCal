@@ -19,7 +19,7 @@ use crate::{
     discord::{
         answer::{Answer, Reply},
         cache::CachedChannel,
-        errors::{CANNOT_SEND_MESSAGES_TO_THIS_USER, is_discord_error},
+        errors::is_direct_message_refused,
     },
     event::{
         dates::event_is_over_at,
@@ -48,7 +48,7 @@ async fn send_host_dm(bot: &Bot, request: &EventRequest, guild_name: &str) -> an
     let view = event_request_host_view(&with_dm, EventRequestOutcome::Open, guild_name);
     match post_view(bot, channel.id, &view).await {
         Ok(at) => Ok(Some(at)),
-        Err(error) if is_discord_error(&error, CANNOT_SEND_MESSAGES_TO_THIS_USER) => Ok(None),
+        Err(error) if is_direct_message_refused(&error) => Ok(None),
         Err(error) => Err(error),
     }
 }

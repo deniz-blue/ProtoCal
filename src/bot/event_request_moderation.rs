@@ -10,7 +10,7 @@ use crate::{
     db::RequestMatch,
     discord::{
         answer::Answer,
-        errors::{CANNOT_SEND_MESSAGES_TO_THIS_USER, is_discord_error},
+        errors::is_direct_message_refused,
         modal::{TextField, modal, submitted_value},
     },
     event::{
@@ -152,7 +152,7 @@ pub async fn send_reply_to_host(bot: &Bot, answer: &Answer<'_>, id: &str, data: 
             tracing::info!(request = %id, by = %user_id, "Event request reply sent");
             answer.tell(format!("Sent to <@{}>.", request.host_id)).await
         }
-        Err(error) if is_discord_error(&error, CANNOT_SEND_MESSAGES_TO_THIS_USER) => answer.tell(HOST_DMS_CLOSED).await,
+        Err(error) if is_direct_message_refused(&error) => answer.tell(HOST_DMS_CLOSED).await,
         Err(error) => Err(error),
     }
 }
