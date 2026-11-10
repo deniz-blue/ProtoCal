@@ -87,7 +87,7 @@ pub fn text_displays(components: &[Component]) -> Vec<String> {
         .flat_map(|component| match component {
             Component::Container(container) => text_displays(&container.components),
             Component::TextDisplay(text) => vec![text.content.clone()],
-            _ => Vec::new(),
+            _ => vec![],
         })
         .collect()
 }
@@ -99,7 +99,7 @@ pub fn button_labels(components: &[Component]) -> Vec<String> {
         .flat_map(|component| match component {
             Component::ActionRow(row) => button_labels(&row.components),
             Component::Button(button) => button.label.clone().into_iter().collect(),
-            _ => Vec::new(),
+            _ => vec![],
         })
         .collect()
 }

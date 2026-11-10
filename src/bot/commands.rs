@@ -132,7 +132,7 @@ impl Bot {
     pub async fn command_mention(&self, guild_id: Id<GuildMarker>, command: &str) -> String {
         let name = command.split(' ').next().unwrap_or(command);
         let interaction = self.http.interaction(self.application_id);
-        let mut published = Vec::new();
+        let mut published = vec![];
         if let Ok(response) = interaction.guild_commands(guild_id).await {
             published.extend(response.models().await.unwrap_or_default());
         }

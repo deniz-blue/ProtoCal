@@ -86,7 +86,7 @@ impl Bot {
     }
 
     pub async fn event_forums_open_to(&self, guild_id: Id<GuildMarker>, member: &MemberRoles) -> anyhow::Result<Vec<OpenEventForum>> {
-        let mut forums = Vec::new();
+        let mut forums = vec![];
         for settings in self.db.event_forums_of_guild(guild_id)? {
             let Some(channel) = self.forum_of_guild(guild_id, settings.forum_id).await else {
                 continue;

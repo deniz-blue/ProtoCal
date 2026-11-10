@@ -11,8 +11,8 @@ pub use checks::{Issue, PathSegment};
 pub use partial_date::{PartialDate, Precision};
 
 pub fn validate(document: &Value) -> Result<(), Vec<Issue>> {
-    let mut issues = Vec::new();
-    document_shape::open_evnt(document, &Vec::new(), &mut issues);
+    let mut issues = vec![];
+    document_shape::open_evnt(document, &vec![], &mut issues);
     if issues.is_empty() { Ok(()) } else { Err(issues) }
 }
 

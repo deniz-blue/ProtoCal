@@ -150,7 +150,7 @@ fn time_of(hour: i32, minute: i32) -> Option<(i8, i8)> {
 fn tokens_of(written: &str) -> Option<Vec<Token>> {
     let text = MERIDIEM.replace_all(written, "${1}m");
     let text = SUFFIX.replace_all(&text, "");
-    let mut tokens = Vec::new();
+    let mut tokens = vec![];
     for found in TOKEN.captures_iter(&text) {
         let group = |name: &str| found.name(name).map(|part| part.as_str());
         let token = if let Some(zone) = group("zone") {
@@ -280,7 +280,7 @@ fn on_twenty_four_hour_clock(hour: i8, after_noon: bool) -> Option<i8> {
 
 fn side_of(tokens: &[Token]) -> Option<WrittenSide> {
     let mut side = WrittenSide::default();
-    let mut numbers: Vec<i32> = Vec::new();
+    let mut numbers: Vec<i32> = vec![];
     let mut year_before_numbers = false;
     let mut hour_next = false;
     for token in tokens {

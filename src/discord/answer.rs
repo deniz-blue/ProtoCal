@@ -18,7 +18,7 @@ pub struct Reply {
 
 impl Reply {
     pub fn text(content: impl Into<String>) -> Self {
-        Self { content: content.into(), components: Vec::new() }
+        Self { content: content.into(), components: vec![] }
     }
 }
 

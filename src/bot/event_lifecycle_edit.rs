@@ -104,7 +104,7 @@ pub async fn save_event_document(bot: &Bot, thread: &CachedChannel, event: &Even
     let ping = notice.pings_role.then(|| format!("<@&{}>", event.role_id));
     let content: Vec<String> = ping.into_iter().chain(notice.lines).collect();
     let mentions = AllowedMentions {
-        roles: if notice.pings_role { vec![event.role_id] } else { Vec::new() },
+        roles: if notice.pings_role { vec![event.role_id] } else { vec![] },
         ..Default::default()
     };
     bot.http

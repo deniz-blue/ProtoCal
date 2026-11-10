@@ -12,7 +12,7 @@ fn event(thread_id: u64, name: &str, updated_at: i64) -> EventPost {
         forum_id: Id::new(2),
         role_id: Id::new(3),
         attend_reaction: "👍".to_owned(),
-        organizers: Vec::new(),
+        organizers: vec![],
         document: json!({ "v": "0.2", "id": format!("https://p.test/events/{thread_id}.evnt.json"), "name": { "und": name } }),
         updated_at,
     }
