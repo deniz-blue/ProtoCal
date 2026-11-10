@@ -22,8 +22,8 @@ mod tests {
 
     use super::*;
 
-    fn first_issue(document: Value) -> (String, String) {
-        let issue = validate(&document).unwrap_err().remove(0);
+    fn first_issue(document: &Value) -> (String, String) {
+        let issue = validate(document).unwrap_err().remove(0);
         let path: Vec<String> = issue
             .path
             .iter()
@@ -54,7 +54,7 @@ mod tests {
         let with = |field: &str, value: Value| {
             let mut document = base.clone();
             document[field] = value;
-            first_issue(document)
+            first_issue(&document)
         };
         assert_eq!(
             with(
@@ -83,7 +83,7 @@ mod tests {
             ("extra".to_owned(), "is not a field of this object".to_owned())
         );
         assert_eq!(
-            first_issue(json!({ "v": "0.2", "id": "nope", "name": { "und": "x" } })).0,
+            first_issue(&json!({ "v": "0.2", "id": "nope", "name": { "und": "x" } })).0,
             "id"
         );
     }
