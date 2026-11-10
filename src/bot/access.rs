@@ -62,10 +62,8 @@ impl Bot {
         if self.cache.guild(guild_id).is_none() {
             return false;
         }
-        match self.forum_of_guild(guild_id, forum_id).await {
-            Some(forum) => self.everyone_permissions_in(&forum).contains(Permissions::VIEW_CHANNEL),
-            None => false,
-        }
+
+        self.forum_of_guild(guild_id, forum_id).await.is_some_and(|forum| self.everyone_permissions_in(&forum).contains(Permissions::VIEW_CHANNEL))
     }
 
     pub fn is_event_moderator(&self, member: &MemberRoles, forum: &CachedChannel) -> bool {
