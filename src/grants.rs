@@ -21,7 +21,7 @@ pub struct GrantStore<T> {
 
 impl<T> Default for GrantStore<T> {
     fn default() -> Self {
-        Self { grants: Mutex::new(HashMap::new()) }
+        Self { grants: Mutex::default() }
     }
 }
 
