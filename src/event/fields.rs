@@ -7,7 +7,7 @@ use super::document::{
 };
 use super::written_date::{partial_dates_of_written, written_of_partial_dates};
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct EventFields {
     pub name: String,
     pub date: Option<String>,
