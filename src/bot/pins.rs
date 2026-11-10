@@ -6,7 +6,7 @@ use twilight_model::{channel::message::Message, gateway::payload::incoming::Mess
 use super::Bot;
 
 static ONLY_ROLE_MENTIONS: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^(\s*<@&[0-9]+>)+\s*$").expect("role mention pattern"));
+    LazyLock::new(|| Regex::new(r"^(\s*<@&\d+>)+\s*$").expect("role mention pattern"));
 
 async fn replied_to_message(bot: &Bot, message: &Message) -> Option<Message> {
     if let Some(replied_to) = &message.referenced_message {

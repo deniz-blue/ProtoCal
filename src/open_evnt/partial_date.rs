@@ -7,7 +7,7 @@ const MILLISECONDS_PER_DAY: i64 = 86_400_000;
 
 static PARTIAL_DATE_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
-        r"^([0-9]{4})(?:-([0-9]{2})(?:-([0-9]{2})(?:T([0-9]{2}):([0-9]{2}))?)?)?\[([A-Za-z][A-Za-z0-9_/+-]*)\]$",
+        r"^(\d{4})(?:-(\d{2})(?:-(\d{2})(?:T(\d{2}):(\d{2}))?)?)?\[([A-Za-z][A-Za-z0-9_/+-]*)\]$",
     )
     .expect("partial date pattern")
 });
