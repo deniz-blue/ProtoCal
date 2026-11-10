@@ -107,7 +107,7 @@ fn the_form_shows_what_the_document_holds_and_saving_it_unchanged_keeps_the_docu
 
 #[test]
 fn a_changed_start_keeps_the_other_dates_and_a_changed_place_keeps_the_venue_name() {
-    let base = document_of(Changed { date: Some("2026-12-05 18:00"), ..Default::default() });
+    let mut base = document_of(Changed { date: Some("2026-12-05 18:00"), ..Default::default() });
     let mut two_dates = base.clone();
     two_dates["occurrences"]
         .as_array_mut()
@@ -121,11 +121,10 @@ fn a_changed_start_keeps_the_other_dates_and_a_changed_place_keeps_the_venue_nam
             { "start": "2026-12-12T18:00[Europe/Vilnius]" },
         ])
     );
-    let mut named = base.clone();
-    named["venue"] = json!({ "name": { "en": "Snekutis" }, "address": "Stiklių g. 7" });
+    base["venue"] = json!({ "name": { "en": "Snekutis" }, "address": "Stiklių g. 7" });
     let moved_place = Changed { date: Some("2026-12-05 18:00"), place: Some("Totorių g. 1"), ..Default::default() };
     assert_eq!(
-        document_on(moved_place, &named)["venue"],
+        document_on(moved_place, &base)["venue"],
         json!({ "name": { "en": "Snekutis" }, "address": "Totorių g. 1" })
     );
 }
