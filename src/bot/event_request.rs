@@ -163,7 +163,7 @@ pub async fn save_event_request_edit(bot: &Bot, answer: &Answer<'_>, id: &str, f
 
 pub async fn drop_event_requests_that_are_over(bot: &Bot, now_unix_seconds: i64) -> anyhow::Result<()> {
     for request in bot.db.all_event_requests()? {
-        if !event_is_over_at(&request.document).is_some_and(|over_at| over_at <= now_unix_seconds) {
+        if event_is_over_at(&request.document).is_none_or(|over_at| over_at > now_unix_seconds) {
             continue;
         }
         let dropped = bot.db.forget_event_request(&request.id, crate::db::RequestMatch::AnyState)?;
