@@ -84,7 +84,7 @@ impl Bot {
             config_grants: GrantStore::default(),
             edit_grants: GrantStore::default(),
             pending_thread_renames: event_lifecycle_edit::PendingThreadRenames::default(),
-            rejected_drafts: Mutex::new(HashMap::new()),
+            rejected_drafts: Mutex::default(),
         }
     }
 
