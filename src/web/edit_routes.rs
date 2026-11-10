@@ -10,7 +10,7 @@ use axum::{
 use serde_json::{Value, json};
 
 use super::{Answered, edit_return_page::edit_return_page, html_answer, text_answer};
-use crate::{bot::Bot, event::document::validate_event_document};
+use crate::{bot::Bot, discord::cache::CachedChannel, event::document::validate_event_document};
 
 const EDIT_LINK_EXPIRED: &str = "This edit link has run out. Ask for a new one in Discord.";
 
@@ -40,7 +40,7 @@ pub async fn save_edit_return(State(bot): State<Arc<Bot>>, body: Bytes) -> Answe
         return edit_answer(StatusCode::FORBIDDEN, EDIT_LINK_EXPIRED, None);
     };
     let event_post = bot.db.event_of_thread(grant.thread_id)?;
-    let thread = bot.channel(grant.thread_id).await.filter(|thread| thread.is_thread());
+    let thread = bot.channel(grant.thread_id).await.filter(CachedChannel::is_thread);
     let (Some(event_post), Some(thread)) = (event_post, thread) else {
         return edit_answer(StatusCode::BAD_REQUEST, "That event is over or its post is gone.", None);
     };

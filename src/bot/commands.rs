@@ -17,12 +17,9 @@ use super::{
     event_lifecycle::{EventStart, start_event},
 };
 use crate::{
-    components::{emoji_of_text, link_button, row},
-    discord::{
-        answer::{Answer, Reply},
-        errors::{INVALID_FORM_BODY, is_discord_error},
-    },
-    event::post::NewEventButton,
+    components::{emoji_of_text, link_button, row}, discord::{
+        answer::{Answer, Reply}, cache::CachedChannel, errors::{INVALID_FORM_BODY, is_discord_error},
+    }, event::post::NewEventButton,
 };
 
 #[derive(CommandModel, CreateCommand)]
@@ -219,7 +216,7 @@ async fn register_post_outcome(bot: &Bot, answer: &Answer<'_>) -> anyhow::Result
     let interaction = answer.interaction;
     let channel_id = interaction.channel.as_ref().map(|channel| channel.id);
     let thread = match channel_id {
-        Some(channel_id) => bot.channel(channel_id).await.filter(|channel| channel.is_thread()),
+        Some(channel_id) => bot.channel(channel_id).await.filter(CachedChannel::is_thread),
         None => None,
     };
     let Some(thread) = thread else {

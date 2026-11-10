@@ -28,7 +28,7 @@ pub fn text_of(translations: Option<&Value>) -> Option<String> {
     let language = SHOWN_LANGUAGES
         .iter()
         .find(|&&candidate| texts.contains_key(candidate))
-        .map(|language| language.to_string())
+        .map(ToString::to_string)
         .or_else(|| texts.keys().next().cloned())?;
     texts.get(&language)?.as_str().map(str::to_owned)
 }

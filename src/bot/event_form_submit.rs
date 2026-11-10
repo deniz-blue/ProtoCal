@@ -12,8 +12,7 @@ use super::{
     event_request::{save_event_request_edit, send_event_request},
 };
 use crate::{
-    discord::answer::{Answer, Reply},
-    event::{
+    discord::{answer::{Answer, Reply}, cache::CachedChannel}, event::{
         document::new_event_document,
         fields::{EventFields, event_document_of_fields},
         post::EventFormTarget,
@@ -70,7 +69,7 @@ pub async fn submit_event_form(bot: &Bot, answer: &Answer<'_>, target: EventForm
         bot.forget_rejected_draft(user_id, &form.target.key());
     }
     answer.defer_privately().await?;
-    let Some(thread) = bot.channel(thread_id).await.filter(|thread| thread.is_thread()) else {
+    let Some(thread) = bot.channel(thread_id).await.filter(CachedChannel::is_thread) else {
         return answer.edit_reply(Reply::text("That event's post is gone.")).await;
     };
     save_event_document(bot, &thread, &event, document).await?;
