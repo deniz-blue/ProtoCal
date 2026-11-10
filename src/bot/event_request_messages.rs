@@ -1,3 +1,4 @@
+use twilight_http::{Client, request::channel::message::CreateMessage};
 use twilight_model::{
     channel::message::AllowedMentions,
     id::{Id, marker::ChannelMarker},
@@ -22,12 +23,12 @@ async fn send_view(bot: &Bot, at: MessageAt, view: &MessageView) -> anyhow::Resu
     Ok(())
 }
 
+fn new_view_message<'a>(http: &'a Client, channel_id: Id<ChannelMarker>, view: &'a MessageView) -> CreateMessage<'a> {
+    http.create_message(channel_id).flags(message_flags_of(&view.components)).components(&view.components)
+}
+
 pub async fn post_view(bot: &Bot, channel_id: Id<ChannelMarker>, view: &MessageView) -> anyhow::Result<MessageAt> {
-    let message = bot
-        .http
-        .create_message(channel_id)
-        .components(&view.components)
-        .flags(message_flags_of(&view.components))
+    let message = new_view_message(&bot.http, channel_id, view)
         .allowed_mentions(Some(&AllowedMentions::default()))
         .await?
         .model()
@@ -95,4 +96,23 @@ async fn show_to_host(bot: &Bot, answer: &Answer<'_>, request: &EventRequest, ou
         answer.edit_reply(view.into()).await?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use twilight_http::{Client, request::TryIntoRequest};
+    use twilight_model::id::Id;
+
+    use super::new_view_message;
+    use crate::{
+        components::{container, text_display},
+        event::request_view::MessageView,
+    };
+
+    #[tokio::test]
+    async fn a_view_with_a_container_passes_twilights_checks() {
+        let http = Client::new(String::new());
+        let view = MessageView { components: vec![text_display("head"), container(vec![text_display("event")])] };
+        assert!(new_view_message(&http, Id::new(1), &view).try_into_request().is_ok());
+    }
 }

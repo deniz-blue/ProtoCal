@@ -115,8 +115,8 @@ impl<'a> Answer<'a> {
         let interaction = self.http.interaction(self.application_id);
         let followup = interaction
             .create_followup(&self.interaction.token)
-            .components(&reply.components)
             .flags(MessageFlags::EPHEMERAL | message_flags_of(&reply.components))
+            .components(&reply.components)
             .allowed_mentions(Some(&mentions));
         if reply.content.is_empty() { followup.await? } else { followup.content(&reply.content).await? };
         Ok(())
