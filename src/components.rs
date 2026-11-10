@@ -1,7 +1,20 @@
 use twilight_model::channel::message::{
-    Component,
-    component::{ActionRow, Button, ButtonStyle},
+    Component, EmojiReactionType, MessageFlags,
+    component::{ActionRow, Button, ButtonStyle, Container, TextDisplay},
 };
+
+pub fn emoji_of_text(text: &str) -> EmojiReactionType {
+    let text = text.trim();
+    let custom = text.strip_prefix('<').and_then(|rest| rest.strip_suffix('>')).and_then(|inner| {
+        let (animated, inner) = match inner.strip_prefix("a:") {
+            Some(rest) => (true, rest),
+            None => (false, inner.strip_prefix(':')?),
+        };
+        let (name, id) = inner.rsplit_once(':')?;
+        Some(EmojiReactionType::Custom { animated, id: id.parse().ok()?, name: Some(name.to_owned()) })
+    });
+    custom.unwrap_or_else(|| EmojiReactionType::Unicode { name: text.to_owned() })
+}
 
 pub fn button(custom_id: impl Into<String>, label: impl Into<String>, style: ButtonStyle) -> Component {
     Component::Button(Button {
@@ -34,6 +47,34 @@ pub fn row(components: Vec<Component>) -> Component {
         id: None,
         components,
     })
+}
+
+pub fn text_display(content: impl Into<String>) -> Component {
+    Component::TextDisplay(TextDisplay { id: None, content: content.into() })
+}
+
+pub fn container(components: Vec<Component>) -> Component {
+    Component::Container(Container { id: None, accent_color: None, spoiler: None, components })
+}
+
+pub fn message_flags_of(components: &[Component]) -> MessageFlags {
+    if components.iter().all(|component| matches!(component, Component::ActionRow(_))) {
+        MessageFlags::empty()
+    } else {
+        MessageFlags::IS_COMPONENTS_V2
+    }
+}
+
+#[cfg(test)]
+pub fn text_displays(components: &[Component]) -> Vec<String> {
+    components
+        .iter()
+        .flat_map(|component| match component {
+            Component::Container(container) => text_displays(&container.components),
+            Component::TextDisplay(text) => vec![text.content.clone()],
+            _ => Vec::new(),
+        })
+        .collect()
 }
 
 #[cfg(test)]

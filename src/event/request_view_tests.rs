@@ -1,13 +1,14 @@
 use regex::Regex;
 use serde_json::json;
-use twilight_model::id::Id;
+use twilight_model::{channel::message::Component, id::Id};
 
 use super::request_view::{
-    EventRequestAction, EventRequestOutcome, MessageView, event_request_action_of, event_request_card,
-    event_request_custom_id, event_request_host_view,
+    EventRequestAction, EventRequestOutcome, MessageView, TEXT_DISPLAYS_MAX, changes_asked_message,
+    event_request_action_of, event_request_card, event_request_custom_id, event_request_host_view,
 };
+use super::post::MESSAGE_MAX;
 use crate::{
-    components::button_labels,
+    components::{button_labels, text_displays},
     records::{EventRequest, MessageAt, RequestState},
     text::utf16_length,
 };
@@ -32,14 +33,23 @@ fn request() -> EventRequest {
 }
 
 fn matches(view: &MessageView, pattern: &str) -> bool {
-    Regex::new(pattern).unwrap().is_match(&view.content)
+    Regex::new(pattern).unwrap().is_match(&text_displays(&view.components).join("\n\n"))
+}
+
+fn head_and_event(view: &MessageView) -> (String, String) {
+    let [Component::TextDisplay(head), Component::Container(event), ..] = view.components.as_slice() else {
+        panic!("expected a text display and then a container: {:?}", view.components);
+    };
+    (head.content.clone(), text_displays(&event.components).join("\n\n"))
 }
 
 #[test]
 fn a_waiting_requests_card_asks_the_moderators_and_the_host_can_edit_or_withdraw() {
     let card = event_request_card(&request(), EventRequestOutcome::Open);
-    assert!(matches(&card, r"^<@3> wants to post this in <#2>\n\n## Bar meet"));
-    assert_eq!(button_labels(&card.components), ["Post", "Edit", "Decline"]);
+    let (head, event) = head_and_event(&card);
+    assert_eq!(head, "<@3> wants to post this in <#2>");
+    assert!(event.starts_with("## Bar meet"));
+    assert_eq!(button_labels(&card.components), ["Approve", "Edit", "Reply", "Deny"]);
     let host_view = event_request_host_view(&request(), EventRequestOutcome::Open, "LTFur");
     assert_eq!(button_labels(&host_view.components), ["Edit", "Withdraw"]);
 }
@@ -53,10 +63,10 @@ fn a_declined_request_shows_who_and_why_and_the_host_can_send_it_again() {
         ..request()
     };
     let card = event_request_card(&declined, EventRequestOutcome::Open);
-    assert!(matches(&card, r"❌ Declined by <@8>: no place yet"));
+    assert!(matches(&card, r"❌ Denied by <@8>: no place yet"));
     assert!(button_labels(&card.components).is_empty());
     let host_view = event_request_host_view(&declined, EventRequestOutcome::Open, "LTFur");
-    assert!(matches(&host_view, r"^❌ Declined by the moderators of <#2> in \*\*LTFur\*\*: no place yet"));
+    assert!(matches(&host_view, r"^❌ Denied by the moderators of <#2> in \*\*LTFur\*\*: no place yet"));
     assert_eq!(button_labels(&host_view.components), ["Edit and send again", "Withdraw"]);
 }
 
@@ -65,8 +75,8 @@ fn a_posted_request_links_the_post_on_both_sides_and_has_no_buttons() {
     let posted = EventRequestOutcome::Posted { by: Id::new(8), thread_id: Id::new(9) };
     let edited = EventRequest { moderators_edited: true, ..request() };
     let card = event_request_card(&edited, posted);
-    assert!(matches(&card, r"✅ Posted by <@8>: <#9>"));
-    assert!(card.components.is_empty());
+    assert!(matches(&card, r"✅ Approved by <@8>: <#9>"));
+    assert!(button_labels(&card.components).is_empty());
     let host_view = event_request_host_view(&edited, posted, "LTFur");
     assert!(matches(&host_view, r"^✅ Posted: <#9>, with changes by the moderators"));
 }
@@ -79,7 +89,7 @@ fn closed_dms_are_noted_on_the_card_and_in_the_hosts_reply() {
 }
 
 #[test]
-fn a_long_description_still_fits_one_message_under_the_cards_head() {
+fn a_long_description_fits_the_card_and_the_event_part_fits_a_post() {
     let long = EventRequest {
         host_edited: true,
         moderators_edited: true,
@@ -91,8 +101,11 @@ fn a_long_description_still_fits_one_message_under_the_cards_head() {
         }),
         ..request()
     };
-    assert!(utf16_length(&event_request_card(&long, EventRequestOutcome::Open).content) <= 2000);
-    assert!(utf16_length(&event_request_host_view(&long, EventRequestOutcome::Open, "LTFur").content) <= 2000);
+    for view in [event_request_card(&long, EventRequestOutcome::Open), event_request_host_view(&long, EventRequestOutcome::Open, "LTFur")] {
+        let texts = text_displays(&view.components);
+        assert!(texts.iter().map(|text| utf16_length(text)).sum::<usize>() <= TEXT_DISPLAYS_MAX);
+        assert!(utf16_length(&head_and_event(&view).1) <= MESSAGE_MAX);
+    }
 }
 
 #[test]
@@ -104,4 +117,15 @@ fn button_ids_carry_the_action_and_the_request() {
     );
     assert_eq!(event_request_action_of("meet-form:request:x"), None);
     assert!(event_request_custom_id(EventRequestAction::DeclineReason, &id).len() <= 100);
+    for action in [EventRequestAction::Reply, EventRequestAction::ReplyMessage] {
+        assert_eq!(event_request_action_of(&event_request_custom_id(action, &id)), Some((action, id.clone())));
+    }
+}
+
+#[test]
+fn changes_asked_names_the_event_the_moderator_and_the_server() {
+    assert_eq!(
+        changes_asked_message("Bar meet", Id::new(8), "LTFur", "Which bar?"),
+        "-# ✏️ Changes asked for **Bar meet** by <@8> at **LTFur**\nWhich bar?"
+    );
 }

@@ -5,6 +5,7 @@ use twilight_model::{
 
 use super::Bot;
 use crate::{
+    components::message_flags_of,
     discord::answer::Answer,
     event::request_view::{EventRequestOutcome, MessageView, event_request_card, event_request_host_view},
     records::{EventRequest, MessageAt},
@@ -13,8 +14,9 @@ use crate::{
 async fn send_view(bot: &Bot, at: MessageAt, view: &MessageView) -> anyhow::Result<()> {
     bot.http
         .update_message(at.channel_id, at.message_id)
-        .content(Some(&view.content))
+        .content(None)
         .components(Some(&view.components))
+        .flags(message_flags_of(&view.components))
         .allowed_mentions(Some(&AllowedMentions::default()))
         .await?;
     Ok(())
@@ -24,8 +26,8 @@ pub async fn post_view(bot: &Bot, channel_id: Id<ChannelMarker>, view: &MessageV
     let message = bot
         .http
         .create_message(channel_id)
-        .content(&view.content)
         .components(&view.components)
+        .flags(message_flags_of(&view.components))
         .allowed_mentions(Some(&AllowedMentions::default()))
         .await?
         .model()
@@ -53,8 +55,39 @@ pub async fn edit_host_dm(bot: &Bot, request: &EventRequest, outcome: EventReque
     }
 }
 
+async fn repost_card(bot: &Bot, request: &EventRequest) -> anyhow::Result<()> {
+    let card = event_request_card(request, EventRequestOutcome::Open);
+    let posted = match post_view(bot, request.card_channel_id, &card).await {
+        Ok(posted) => posted,
+        Err(error) => {
+            tracing::warn!(request = %request.id, ?error, "Event request card was not posted again");
+            edit_card(bot, request, EventRequestOutcome::Open).await;
+            return Ok(());
+        }
+    };
+    if bot.db.move_event_request_card(&request.id, posted.message_id)?.is_none() {
+        let _ = bot.http.delete_message(posted.channel_id, posted.message_id).await;
+        return Ok(());
+    }
+    if let Some(old) = request.card_message_id
+        && let Err(error) = bot.http.delete_message(request.card_channel_id, old).await
+    {
+        tracing::warn!(request = %request.id, ?error, "Old event request card was not deleted");
+    }
+    Ok(())
+}
+
+pub async fn show_host_edited_event_request(bot: &Bot, answer: &Answer<'_>, request: &EventRequest) -> anyhow::Result<()> {
+    repost_card(bot, request).await?;
+    show_to_host(bot, answer, request, EventRequestOutcome::Open).await
+}
+
 pub async fn show_event_request(bot: &Bot, answer: &Answer<'_>, request: &EventRequest, outcome: EventRequestOutcome) -> anyhow::Result<()> {
     edit_card(bot, request, outcome).await;
+    show_to_host(bot, answer, request, outcome).await
+}
+
+async fn show_to_host(bot: &Bot, answer: &Answer<'_>, request: &EventRequest, outcome: EventRequestOutcome) -> anyhow::Result<()> {
     if request.host_dm.is_some() {
         edit_host_dm(bot, request, outcome).await;
     } else if answer.interaction.author_id() == Some(request.host_id) {

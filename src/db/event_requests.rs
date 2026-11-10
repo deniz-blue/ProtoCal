@@ -1,6 +1,9 @@
 use rusqlite::{OptionalExtension as _, Row, params};
 use serde_json::Value;
-use twilight_model::id::{Id, marker::UserMarker};
+use twilight_model::id::{
+    Id,
+    marker::{MessageMarker, UserMarker},
+};
 
 use super::{Database, json_of, parsed, parsed_optional};
 use crate::records::{EventRequest, MessageAt, RequestState};
@@ -130,6 +133,17 @@ impl Database {
             db.query_row(
                 &format!("UPDATE event_requests SET document = ?2, updated_at = ?3, {edited} WHERE id = ?1 RETURNING {COLUMNS}"),
                 params![id, document.to_string(), updated_at],
+                event_request_of_row,
+            )
+            .optional()
+        })
+    }
+
+    pub fn move_event_request_card(&self, id: &str, card_message_id: Id<MessageMarker>) -> anyhow::Result<Option<EventRequest>> {
+        self.with(|db| {
+            db.query_row(
+                &format!("UPDATE event_requests SET card_message_id = ?2 WHERE id = ?1 RETURNING {COLUMNS}"),
+                params![id, card_message_id.to_string()],
                 event_request_of_row,
             )
             .optional()

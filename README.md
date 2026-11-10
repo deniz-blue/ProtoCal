@@ -26,16 +26,17 @@ While an event runs:
 ### Posting an event
 
 - `/event new` opens a form with Name, Start, End, Place and Description. Start and End take `2026-12-05 18:00` or `2026-12-05`. Times are in Europe/Vilnius unless the value ends in another zone in brackets, such as `2026-12-05 18:00 [Europe/London]`. A form that does not read comes back with the reason and a Fix it button that reopens it with the same values.
-- `/event track`, run inside a post someone made by hand, makes that post an event.
+- `/event register`, run inside a post someone made by hand, makes that post an event.
+- `/event send-new-button` posts a New event button in the channel it is run in. Pressing it does what `/event new` does, with the forum already picked if one was given.
 - An event the bot posted has an Edit button, and a View button when everyone can see the forum. Edit offers Edit on Discord (the same form) and Edit via App (the editor on eventsl.ink). Organizers and moderators can edit.
 
 ### Review
 
-A forum with a review channel is screened. A post made with `/event new` by someone without Manage Threads goes to that channel as a request. Moderators (people with Manage Threads in the forum) can Post, Edit or Decline it. A decline can carry a reason, up to 300 characters, and the host sees it.
+A forum with a review channel is screened. A post made with `/event new` by someone without Manage Threads goes to that channel as a request. Moderators (people with Manage Threads in the forum) can Approve, Edit, Reply or Deny it. Reply sends the host a message, up to 1500 characters, in their DM as an answer to the bot's DM about the request. A denial can carry a reason, up to 300 characters, and the host sees it.
 
-The host can edit the request, withdraw it, or send it again after a decline. A request whose event date has passed is removed. A request still waiting is marked as expired first.
+The host can edit the request, withdraw it, or send it again after a denial. A host edit posts the card again at the bottom of the review channel and deletes the old one, so moderators see it as a new message. A request whose event date has passed is removed. A request still waiting is marked as expired first.
 
-Only `/event new` goes through review. A post made directly in the forum starts as an event at once.
+A post made directly in a screened forum by someone without Manage Threads is not made an event. The bot says so in the post, and a moderator can make it one with `/event register`.
 
 ### Calendars
 
@@ -47,7 +48,8 @@ Only `/event new` goes through review. A post made directly in the forum starts 
 | --- | --- | --- |
 | `/config` | Manage Server | Private link to the settings page. It works for an hour, and only while you can still manage the server. |
 | `/event new [forum]` | Anyone who can post in an event forum | Opens the event form. Without `forum`, you pick the forum from a list. |
-| `/event track` | The poster, or a moderator | Makes the post you run it in an event. In a screened forum, moderators only. |
+| `/event register` | The poster, or a moderator | Makes the post you run it in an event. In a screened forum, moderators only. |
+| `/event send-new-button [forum] [text] [emoji] [color]` | Moderators | Posts a New event button in this channel. With `forum`, the button opens the form for that forum. `text` (up to 80 characters), `emoji` (a standard one or one from the server) and `color` (blurple, grey, green or red) change how it looks. |
 | `/mycalendar [new]` | Anyone, in a server or in a DM with the bot | Private link to your events. `new` replaces the link. |
 
 ## Web

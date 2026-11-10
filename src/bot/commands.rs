@@ -1,8 +1,12 @@
-use twilight_interactions::command::{CommandInputData, CommandModel, CreateCommand};
+use twilight_interactions::command::{CommandInputData, CommandModel, CommandOption, CreateCommand, CreateOption};
 use twilight_model::{
     application::{command::Command, interaction::application_command::CommandData},
+    channel::message::component::ButtonStyle,
     guild::Permissions,
-    id::{Id, marker::ChannelMarker},
+    id::{
+        Id,
+        marker::{ChannelMarker, GuildMarker},
+    },
 };
 
 use super::{
@@ -13,8 +17,12 @@ use super::{
     event_lifecycle::{EventStart, start_event},
 };
 use crate::{
-    components::{link_button, row},
-    discord::answer::{Answer, Reply},
+    components::{emoji_of_text, link_button, row},
+    discord::{
+        answer::{Answer, Reply},
+        errors::{INVALID_FORM_BODY, is_discord_error},
+    },
+    event::post::NewEventButton,
 };
 
 #[derive(CommandModel, CreateCommand)]
@@ -35,8 +43,10 @@ fn manage_guild() -> Permissions {
 pub enum EventCommand {
     #[command(name = "new")]
     New(PostEvent),
-    #[command(name = "track")]
-    Track(TrackPost),
+    #[command(name = "register")]
+    Register(RegisterPost),
+    #[command(name = "send-new-button")]
+    SendNewButton(SendNewEventButton),
 }
 
 #[derive(CommandModel, CreateCommand)]
@@ -50,8 +60,44 @@ pub struct PostEvent {
 }
 
 #[derive(CommandModel, CreateCommand)]
-#[command(name = "track", desc = "Make this post, made by hand, an event")]
-pub struct TrackPost;
+#[command(name = "register", desc = "Make this post, made by hand, an event")]
+pub struct RegisterPost;
+
+#[derive(CommandModel, CreateCommand)]
+#[command(name = "send-new-button", desc = "Post a button here that opens the event form")]
+pub struct SendNewEventButton {
+    #[command(desc = "The forum the button posts to; without it, people pick", channel_types = "guild_forum")]
+    forum: Option<Id<ChannelMarker>>,
+    #[command(desc = "Button text, New event if left out", min_length = 1, max_length = 80)]
+    text: Option<String>,
+    #[command(desc = "A standard emoji or one from this server")]
+    emoji: Option<String>,
+    #[command(desc = "Button color, blurple if left out")]
+    color: Option<ButtonColor>,
+}
+
+#[derive(CommandOption, CreateOption)]
+pub enum ButtonColor {
+    #[option(name = "Blurple", value = "blurple")]
+    Blurple,
+    #[option(name = "Grey", value = "grey")]
+    Grey,
+    #[option(name = "Green", value = "green")]
+    Green,
+    #[option(name = "Red", value = "red")]
+    Red,
+}
+
+impl ButtonColor {
+    fn style(&self) -> ButtonStyle {
+        match self {
+            Self::Blurple => ButtonStyle::Primary,
+            Self::Grey => ButtonStyle::Secondary,
+            Self::Green => ButtonStyle::Success,
+            Self::Red => ButtonStyle::Danger,
+        }
+    }
+}
 
 #[derive(CommandModel, CreateCommand)]
 #[command(name = "mycalendar", desc = "Link to the events you joined", contexts = "guild bot_dm")]
@@ -74,10 +120,29 @@ pub async fn run_command(bot: &Bot, answer: &Answer<'_>, data: &CommandData) -> 
         "config" => open_config(bot, answer).await,
         "event" => match EventCommand::from_interaction(input)? {
             EventCommand::New(PostEvent { forum }) => offer_new_event_form(bot, answer, forum).await,
-            EventCommand::Track(TrackPost) => track_post(bot, answer).await,
+            EventCommand::Register(RegisterPost) => register_post(bot, answer).await,
+            EventCommand::SendNewButton(options) => send_new_event_button(bot, answer, options).await,
         },
         "mycalendar" => open_calendar(bot, answer, MyCalendar::from_interaction(input)?).await,
         _ => answer.reply_privately(Reply::text("Command not found. Please report this.")).await,
+    }
+}
+
+impl Bot {
+    pub async fn command_mention(&self, guild_id: Id<GuildMarker>, command: &str) -> String {
+        let name = command.split(' ').next().unwrap_or(command);
+        let interaction = self.http.interaction(self.application_id);
+        let mut published = Vec::new();
+        if let Ok(response) = interaction.guild_commands(guild_id).await {
+            published.extend(response.models().await.unwrap_or_default());
+        }
+        if let Ok(response) = interaction.global_commands().await {
+            published.extend(response.models().await.unwrap_or_default());
+        }
+        match published.into_iter().find(|published| published.name == name).and_then(|published| published.id) {
+            Some(id) => format!("</{command}:{id}>"),
+            None => format!("/{command}"),
+        }
     }
 }
 
@@ -109,13 +174,48 @@ async fn open_calendar(bot: &Bot, answer: &Answer<'_>, options: MyCalendar) -> a
     answer.reply_privately(Reply { content: String::new(), components: vec![row(vec![open])] }).await
 }
 
-async fn track_post(bot: &Bot, answer: &Answer<'_>) -> anyhow::Result<()> {
+async fn send_new_event_button(bot: &Bot, answer: &Answer<'_>, options: SendNewEventButton) -> anyhow::Result<()> {
     answer.defer_privately().await?;
-    let message = track_post_outcome(bot, answer).await?;
+    let message = new_event_button_outcome(bot, answer, options).await?;
     answer.edit_reply(Reply::text(message)).await
 }
 
-async fn track_post_outcome(bot: &Bot, answer: &Answer<'_>) -> anyhow::Result<&'static str> {
+async fn new_event_button_outcome(bot: &Bot, answer: &Answer<'_>, options: SendNewEventButton) -> anyhow::Result<String> {
+    let forum_id = options.forum;
+    let interaction = answer.interaction;
+    if !interaction_has_permission(interaction, Permissions::MANAGE_THREADS) {
+        return Ok("Only staff can post this button.".to_owned());
+    }
+    if let Some(forum_id) = forum_id
+        && bot.db.event_forum_of(forum_id)?.is_none()
+    {
+        return Ok(format!("<#{forum_id}> is not an event forum."));
+    }
+    let Some(channel_id) = interaction.channel.as_ref().map(|channel| channel.id) else {
+        return Ok("Run this in a channel.".to_owned());
+    };
+    let label = options.text.as_deref().unwrap_or("New event");
+    let emoji = options.emoji.as_deref().map(emoji_of_text);
+    let style = options.color.as_ref().map_or(ButtonStyle::Primary, ButtonColor::style);
+    let buttons = [NewEventButton { forum_id }.component(label, emoji, style)];
+    let Err(error) = bot.http.create_message(channel_id).components(&buttons).await else {
+        return Ok("Posted.".to_owned());
+    };
+    let error = anyhow::Error::from(error);
+    tracing::warn!(channel = %channel_id, ?error, "New event button was not posted");
+    if options.emoji.is_some() && is_discord_error(&error, INVALID_FORM_BODY) {
+        return Ok("Discord did not take that emoji. Use a standard one or one from this server.".to_owned());
+    }
+    Ok("I could not post in this channel.".to_owned())
+}
+
+async fn register_post(bot: &Bot, answer: &Answer<'_>) -> anyhow::Result<()> {
+    answer.defer_privately().await?;
+    let message = register_post_outcome(bot, answer).await?;
+    answer.edit_reply(Reply::text(message)).await
+}
+
+async fn register_post_outcome(bot: &Bot, answer: &Answer<'_>) -> anyhow::Result<&'static str> {
     let interaction = answer.interaction;
     let channel_id = interaction.channel.as_ref().map(|channel| channel.id);
     let thread = match channel_id {
@@ -155,7 +255,7 @@ mod tests {
     use super::all_commands;
 
     #[test]
-    fn commands_match_what_the_typescript_published() {
+    fn published_command_shapes() {
         let commands: Vec<Value> = all_commands().iter().map(|command| serde_json::to_value(command).unwrap()).collect();
         let [config, event, calendar] = commands.as_slice() else {
             panic!("three commands");
@@ -169,7 +269,11 @@ mod tests {
         assert_eq!(forum["name"], "forum");
         assert_eq!(forum["channel_types"], json!([15]));
         assert_ne!(forum["required"], json!(true));
-        assert_eq!(event["options"][1]["name"], "track");
+        assert_eq!(event["options"][1]["name"], "register");
+        assert_eq!(event["options"][2]["name"], "send-new-button");
+        assert_eq!(event["options"][2]["options"][0]["channel_types"], json!([15]));
+        assert_eq!(event["options"][2]["options"][1]["max_length"], 80);
+        assert_eq!(event["options"][2]["options"][3]["choices"][0]["value"], "blurple");
         assert_eq!(calendar["contexts"], json!([0, 1]));
         assert_eq!(calendar["options"][0]["name"], "new");
         assert_eq!(calendar["options"][0]["type"], 5);

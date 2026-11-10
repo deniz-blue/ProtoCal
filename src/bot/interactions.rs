@@ -6,13 +6,16 @@ use super::{
     Bot,
     commands::run_command,
     event_edit::answer_edit_button,
-    event_form::{open_event_form, open_picked_event_form, submit_event_form},
-    event_request_moderation::{ask_decline_reason, decline_event_request, post_event_request, withdraw_event_request},
+    event_form::{offer_new_event_form, open_event_form, open_picked_event_form, submit_event_form},
+    event_request_moderation::{
+        ask_decline_reason, ask_reply_message, decline_event_request, post_event_request, send_reply_to_host,
+        withdraw_event_request,
+    },
 };
 use crate::{
     discord::answer::Answer,
     event::{
-        post::{EVENT_FORUM_PICK, EventFormTarget, thread_of_edit_button},
+        post::{EVENT_FORUM_PICK, EventFormTarget, NewEventButton, thread_of_edit_button},
         request_view::{EventRequestAction, event_request_action_of},
     },
 };
@@ -40,6 +43,9 @@ async fn press_component(bot: &Bot, answer: &Answer<'_>, data: &MessageComponent
     if custom_id == EVENT_FORUM_PICK {
         return open_picked_event_form(bot, answer, data.values.first().map(String::as_str)).await;
     }
+    if let Some(pressed) = NewEventButton::of_custom_id(custom_id) {
+        return offer_new_event_form(bot, answer, pressed.forum_id).await;
+    }
     if let Some(thread_id) = thread_of_edit_button(custom_id) {
         return answer_edit_button(bot, answer, thread_id).await;
     }
@@ -49,8 +55,9 @@ async fn press_component(bot: &Bot, answer: &Answer<'_>, data: &MessageComponent
     match event_request_action_of(custom_id) {
         Some((EventRequestAction::Post, id)) => post_event_request(bot, answer, &id).await,
         Some((EventRequestAction::Decline, id)) => ask_decline_reason(bot, answer, &id).await,
+        Some((EventRequestAction::Reply, id)) => ask_reply_message(bot, answer, &id).await,
         Some((EventRequestAction::Withdraw, id)) => withdraw_event_request(bot, answer, &id).await,
-        Some((EventRequestAction::DeclineReason, _)) | None => Ok(()),
+        Some((EventRequestAction::DeclineReason | EventRequestAction::ReplyMessage, _)) | None => Ok(()),
     }
 }
 
@@ -60,6 +67,7 @@ async fn submit_modal(bot: &Bot, answer: &Answer<'_>, data: &ModalInteractionDat
     }
     match event_request_action_of(&data.custom_id) {
         Some((EventRequestAction::DeclineReason, id)) => decline_event_request(bot, answer, &id, data).await,
+        Some((EventRequestAction::ReplyMessage, id)) => send_reply_to_host(bot, answer, &id, data).await,
         _ => Ok(()),
     }
 }

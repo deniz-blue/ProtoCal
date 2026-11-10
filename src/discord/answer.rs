@@ -8,6 +8,8 @@ use twilight_model::{
     id::{Id, marker::ApplicationMarker},
 };
 
+use crate::components::message_flags_of;
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Reply {
     pub content: String,
@@ -22,7 +24,7 @@ impl Reply {
 
 impl From<crate::event::request_view::MessageView> for Reply {
     fn from(view: crate::event::request_view::MessageView) -> Self {
-        Self { content: view.content, components: view.components }
+        Self { content: String::new(), components: view.components }
     }
 }
 
@@ -66,8 +68,8 @@ impl<'a> Answer<'a> {
     pub async fn reply_privately(&self, reply: Reply) -> anyhow::Result<()> {
         let data = InteractionResponseData {
             content: Some(reply.content).filter(|content| !content.is_empty()),
+            flags: Some(MessageFlags::EPHEMERAL | message_flags_of(&reply.components)),
             components: Some(reply.components),
-            flags: Some(MessageFlags::EPHEMERAL),
             allowed_mentions: Some(AllowedMentions::default()),
             ..Default::default()
         };
@@ -97,26 +99,26 @@ impl<'a> Answer<'a> {
 
     pub async fn edit_reply(&self, reply: Reply) -> anyhow::Result<()> {
         let mentions = AllowedMentions::default();
-        self.http
-            .interaction(self.application_id)
+        let interaction = self.http.interaction(self.application_id);
+        let update = interaction
             .update_response(&self.interaction.token)
-            .content(Some(&reply.content))
+            .content(Some(reply.content.as_str()).filter(|content| !content.is_empty()))
             .components(Some(&reply.components))
-            .allowed_mentions(Some(&mentions))
-            .await?;
+            .allowed_mentions(Some(&mentions));
+        let flags = message_flags_of(&reply.components);
+        if flags.is_empty() { update.await? } else { update.flags(flags).await? };
         Ok(())
     }
 
     pub async fn follow_up_privately(&self, reply: Reply) -> anyhow::Result<()> {
         let mentions = AllowedMentions::default();
-        self.http
-            .interaction(self.application_id)
+        let interaction = self.http.interaction(self.application_id);
+        let followup = interaction
             .create_followup(&self.interaction.token)
-            .content(&reply.content)
             .components(&reply.components)
-            .flags(MessageFlags::EPHEMERAL)
-            .allowed_mentions(Some(&mentions))
-            .await?;
+            .flags(MessageFlags::EPHEMERAL | message_flags_of(&reply.components))
+            .allowed_mentions(Some(&mentions));
+        if reply.content.is_empty() { followup.await? } else { followup.content(&reply.content).await? };
         Ok(())
     }
 

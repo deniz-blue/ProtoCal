@@ -140,7 +140,7 @@ impl Bot {
                 if thread.owner_id == Some(self.user_id) {
                     return Ok(());
                 }
-                event_lifecycle::start_event(self, &thread, None).await.map(drop)
+                event_lifecycle::start_event_of_new_post(self, &thread).await
             }
             Event::ThreadDelete(thread) => event_lifecycle::end_event(self, thread.guild_id, thread.id).await,
             Event::ThreadUpdate(thread) => {

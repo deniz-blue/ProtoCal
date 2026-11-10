@@ -8,7 +8,7 @@ use twilight_model::{
 
 use super::post::{MESSAGE_MAX, EventFormTarget, event_post_content};
 use crate::{
-    components::{button, row},
+    components::{button, container, row, text_display},
     records::{EventRequest, RequestState},
     text::utf16_length,
 };
@@ -16,12 +16,15 @@ use crate::{
 // Buttons already posted to Discord carry this id.
 const EVENT_REQUEST_BUTTON: &str = "meet-request";
 const EXPIRED: &str = "⌛ Nobody got to it before the event would have been over.";
+pub const TEXT_DISPLAYS_MAX: usize = 4000;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum EventRequestAction {
     Post,
     Decline,
     DeclineReason,
+    Reply,
+    ReplyMessage,
     Withdraw,
 }
 
@@ -31,12 +34,14 @@ impl EventRequestAction {
             Self::Post => "post",
             Self::Decline => "decline",
             Self::DeclineReason => "decline-reason",
+            Self::Reply => "reply",
+            Self::ReplyMessage => "reply-message",
             Self::Withdraw => "withdraw",
         }
     }
 
     fn of_str(text: &str) -> Option<Self> {
-        [Self::Post, Self::Decline, Self::DeclineReason, Self::Withdraw]
+        [Self::Post, Self::Decline, Self::DeclineReason, Self::Reply, Self::ReplyMessage, Self::Withdraw]
             .into_iter()
             .find(|action| action.as_str() == text)
     }
@@ -69,7 +74,6 @@ pub enum EventRequestOutcome {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct MessageView {
-    pub content: String,
     pub components: Vec<Component>,
 }
 
@@ -81,12 +85,13 @@ fn edit_button(request: &EventRequest, label: &str) -> Component {
 fn with_preview(request: &EventRequest, head: &[String], buttons: Vec<Component>) -> MessageView {
     let lines: Vec<&str> = head.iter().map(String::as_str).filter(|line| !line.is_empty()).collect();
     let top = lines.join("\n");
-    let room = MESSAGE_MAX.saturating_sub(utf16_length(&top) + 2);
+    let room = MESSAGE_MAX.min(TEXT_DISPLAYS_MAX.saturating_sub(utf16_length(&top)));
     let preview = event_post_content(&request.document, &[request.host_id], request.updated_at, room);
-    MessageView {
-        content: format!("{top}\n\n{preview}"),
-        components: if buttons.is_empty() { Vec::new() } else { vec![row(buttons)] },
+    let mut components = vec![text_display(top), container(vec![text_display(preview)])];
+    if !buttons.is_empty() {
+        components.push(row(buttons));
     }
+    MessageView { components }
 }
 
 fn reason_of(request: &EventRequest) -> String {
@@ -108,24 +113,29 @@ pub fn event_request_card(request: &EventRequest, outcome: EventRequestOutcome) 
         },
     ];
     let status = match outcome {
-        EventRequestOutcome::Posted { by, thread_id } => format!("✅ Posted by <@{by}>: <#{thread_id}>"),
+        EventRequestOutcome::Posted { by, thread_id } => format!("✅ Approved by <@{by}>: <#{thread_id}>"),
         EventRequestOutcome::Withdrawn => "↩️ Withdrawn by the host".to_owned(),
         EventRequestOutcome::Expired => EXPIRED.to_owned(),
         EventRequestOutcome::Open if request.state == RequestState::Declined => {
             let by = request.handled_by.map_or_else(String::new, |id| id.to_string());
-            format!("❌ Declined by <@{by}>{}", reason_of(request))
+            format!("❌ Denied by <@{by}>{}", reason_of(request))
         }
         EventRequestOutcome::Open => {
             let buttons = vec![
-                button(event_request_custom_id(EventRequestAction::Post, &request.id), "Post", ButtonStyle::Primary),
+                button(event_request_custom_id(EventRequestAction::Post, &request.id), "Approve", ButtonStyle::Primary),
                 edit_button(request, "Edit"),
-                button(event_request_custom_id(EventRequestAction::Decline, &request.id), "Decline", ButtonStyle::Danger),
+                button(event_request_custom_id(EventRequestAction::Reply, &request.id), "Reply", ButtonStyle::Secondary),
+                button(event_request_custom_id(EventRequestAction::Decline, &request.id), "Deny", ButtonStyle::Danger),
             ];
             return with_preview(request, &head, buttons);
         }
     };
     head.push(status);
     with_preview(request, &head, Vec::new())
+}
+
+pub fn changes_asked_message(event_name: &str, moderator_id: Id<UserMarker>, guild_name: &str, message: &str) -> String {
+    format!("-# ✏️ Changes asked for **{event_name}** by <@{moderator_id}> at **{guild_name}**\n{message}")
 }
 
 pub fn event_request_host_view(request: &EventRequest, outcome: EventRequestOutcome, guild_name: &str) -> MessageView {
@@ -140,7 +150,7 @@ pub fn event_request_host_view(request: &EventRequest, outcome: EventRequestOutc
         EventRequestOutcome::Expired => with_preview(request, &[EXPIRED.to_owned()], Vec::new()),
         EventRequestOutcome::Open if request.state == RequestState::Declined => with_preview(
             request,
-            &[format!("❌ Declined by {moderators}{}", reason_of(request))],
+            &[format!("❌ Denied by {moderators}{}", reason_of(request))],
             vec![edit_button(request, "Edit and send again"), withdraw()],
         ),
         EventRequestOutcome::Open => {

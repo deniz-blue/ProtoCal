@@ -13,6 +13,7 @@ use twilight_model::{
 
 use super::{
     Bot,
+    access::OpenEventForum,
     event_roles::{RoleChange, change_event_role, create_event_role},
 };
 use crate::{
@@ -23,7 +24,7 @@ use crate::{
         document::new_event_document,
         post::{MESSAGE_MAX, event_post_buttons, event_post_content, thread_name_of},
     },
-    records::EventPost,
+    records::{EventForum, EventPost},
     time::now_unix_seconds,
 };
 
@@ -118,6 +119,39 @@ pub async fn start_event(bot: &Bot, thread: &CachedChannel, posted: Option<Event
         .allowed_mentions(Some(&mentions))
         .await?;
     Ok(EventStart::Started)
+}
+
+fn new_post_goes_to_review_note(register_command: &str) -> String {
+    format!(
+        "-# **Event not created**: A moderator must use {register_command} here to register it. Reviews are enabled for this forum but permissions were not set up correctly."
+    )
+}
+
+async fn new_post_goes_to_review(bot: &Bot, thread: &CachedChannel) -> anyhow::Result<bool> {
+    let Some(forum_id) = thread.parent_id else {
+        return Ok(false);
+    };
+    let Some(settings) = bot.db.event_forum_of(forum_id)?.filter(EventForum::is_screened) else {
+        return Ok(false);
+    };
+    let Some(channel) = bot.forum_of_guild(thread.guild_id, forum_id).await else {
+        return Ok(false);
+    };
+    let poster = match thread.owner_id {
+        Some(owner_id) => bot.member_roles(thread.guild_id, owner_id).await,
+        None => None,
+    };
+    let forum = OpenEventForum { channel, settings };
+    Ok(poster.is_none_or(|poster| bot.event_goes_to_review(&poster, &forum)))
+}
+
+pub async fn start_event_of_new_post(bot: &Bot, thread: &CachedChannel) -> anyhow::Result<()> {
+    if new_post_goes_to_review(bot, thread).await? {
+        let register_command = bot.command_mention(thread.guild_id, "event register").await;
+        bot.http.create_message(thread.id).content(&new_post_goes_to_review_note(&register_command)).await?;
+        return Ok(());
+    }
+    start_event(bot, thread, None).await.map(drop)
 }
 
 pub async fn post_new_event(

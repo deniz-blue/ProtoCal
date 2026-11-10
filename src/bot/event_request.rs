@@ -12,7 +12,7 @@ use super::{
     access::OpenEventForum,
     event_form_modal::reject_draft,
     event_form_submit::SubmittedForm,
-    event_request_messages::{edit_card, edit_host_dm, post_view, show_event_request},
+    event_request_messages::{edit_card, edit_host_dm, post_view, show_event_request, show_host_edited_event_request},
 };
 use crate::{
     db::RequestEditor,
@@ -154,7 +154,10 @@ pub async fn save_event_request_edit(bot: &Bot, answer: &Answer<'_>, id: &str, f
     };
     let sends_again = editor == RequestEditor::Host && request.state == RequestState::Declined;
     tracing::info!(request = %id, ?editor, sends_again, "Event request edited");
-    show_event_request(bot, answer, &edited, EventRequestOutcome::Open).await
+    match editor {
+        RequestEditor::Host => show_host_edited_event_request(bot, answer, &edited).await,
+        RequestEditor::Moderator => show_event_request(bot, answer, &edited, EventRequestOutcome::Open).await,
+    }
 }
 
 pub async fn drop_event_requests_that_are_over(bot: &Bot, now_unix_seconds: i64) -> anyhow::Result<()> {

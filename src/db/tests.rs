@@ -158,6 +158,16 @@ fn a_request_is_declined_once_and_a_host_edit_sends_it_again() {
 }
 
 #[test]
+fn a_reposted_card_moves_the_request_to_the_new_message() {
+    let db = Database::in_memory();
+    db.save_event_request(&request()).unwrap();
+    let moved = db.move_event_request_card("5f0c6a52", Id::new(99)).unwrap().unwrap();
+    assert_eq!(moved.card_message_id, Some(Id::new(99)));
+    assert_eq!(db.event_request_of("5f0c6a52").unwrap().unwrap().card_message_id, Some(Id::new(99)));
+    assert_eq!(db.move_event_request_card("gone", Id::new(99)).unwrap(), None);
+}
+
+#[test]
 fn a_calendar_link_is_found_by_person_and_by_token_and_replaced_in_place() {
     let db = Database::in_memory();
     let link = CalendarLink { user_id: Id::new(4), token: "abc".to_owned(), created_at: 1 };

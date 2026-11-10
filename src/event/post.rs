@@ -1,6 +1,9 @@
 use serde_json::Value;
 use twilight_model::{
-    channel::message::{Component, component::ButtonStyle},
+    channel::message::{
+        Component, EmojiReactionType,
+        component::{Button, ButtonStyle},
+    },
     id::{
         Id,
         marker::{ChannelMarker, UserMarker},
@@ -26,6 +29,41 @@ pub const THREAD_NAME_MAX: usize = 100;
 pub const EVENT_FORM_BUTTON: &str = "meet-form";
 pub const EVENT_EDIT_BUTTON: &str = "meet-edit";
 pub const EVENT_FORUM_PICK: &str = "meet-forum-pick";
+pub const NEW_EVENT_BUTTON: &str = "event-new";
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct NewEventButton {
+    pub forum_id: Option<Id<ChannelMarker>>,
+}
+
+impl NewEventButton {
+    pub fn custom_id(&self) -> String {
+        match self.forum_id {
+            Some(forum_id) => format!("{NEW_EVENT_BUTTON}:{forum_id}"),
+            None => NEW_EVENT_BUTTON.to_owned(),
+        }
+    }
+
+    pub fn of_custom_id(custom_id: &str) -> Option<Self> {
+        match custom_id.strip_prefix(NEW_EVENT_BUTTON)? {
+            "" => Some(Self { forum_id: None }),
+            rest => rest.strip_prefix(':')?.parse().ok().map(|forum_id| Self { forum_id: Some(forum_id) }),
+        }
+    }
+
+    pub fn component(&self, label: &str, emoji: Option<EmojiReactionType>, style: ButtonStyle) -> Component {
+        row(vec![Component::Button(Button {
+            id: None,
+            custom_id: Some(self.custom_id()),
+            disabled: false,
+            emoji,
+            label: Some(label.to_owned()),
+            style,
+            url: None,
+            sku_id: None,
+        })])
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum EventFormTarget {
@@ -121,4 +159,32 @@ pub fn event_edit_buttons(thread_id: Id<ChannelMarker>, edit_url: String) -> Com
         ),
         link_button("Edit via App", edit_url),
     ])
+}
+
+#[cfg(test)]
+mod tests {
+    use twilight_model::{channel::message::EmojiReactionType, id::Id};
+
+    use super::{EventFormTarget, NewEventButton};
+    use crate::components::emoji_of_text;
+
+    #[test]
+    fn emoji_of_text_reads_custom_and_standard_emoji() {
+        let party = EmojiReactionType::Custom { animated: false, id: Id::new(123), name: Some("party".to_owned()) };
+        assert_eq!(emoji_of_text("<:party:123>"), party);
+        let spin = EmojiReactionType::Custom { animated: true, id: Id::new(9), name: Some("spin".to_owned()) };
+        assert_eq!(emoji_of_text(" <a:spin:9> "), spin);
+        assert_eq!(emoji_of_text("📅"), EmojiReactionType::Unicode { name: "📅".to_owned() });
+        assert_eq!(emoji_of_text("<:party:x>"), EmojiReactionType::Unicode { name: "<:party:x>".to_owned() });
+    }
+
+    #[test]
+    fn new_event_button_reads_back_its_custom_id() {
+        for button in [NewEventButton { forum_id: None }, NewEventButton { forum_id: Some(Id::new(42)) }] {
+            assert_eq!(NewEventButton::of_custom_id(&button.custom_id()), Some(button));
+        }
+        assert_eq!(NewEventButton::of_custom_id("event-new:x"), None);
+        assert_eq!(NewEventButton::of_custom_id("event-newer"), None);
+        assert_eq!(NewEventButton::of_custom_id(&EventFormTarget::New(Id::new(42)).custom_id()), None);
+    }
 }
