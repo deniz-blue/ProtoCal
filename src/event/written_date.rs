@@ -212,7 +212,7 @@ impl WrittenSide {
 
     fn take_month_of(&mut self, day: Date) {
         self.month = Some(day.month());
-        self.year = self.year.or(Some(day.year()));
+        self.year = self.year.or_else(|| Some(day.year()));
     }
 
     fn move_to_month_after(&mut self, day: Date) -> Option<()> {
@@ -401,7 +401,7 @@ fn when_of(side: &WrittenSide, today: Date, earliest: Date) -> Option<When> {
     let when = if names_a_day {
         When::Day(day_of(side, today, earliest)?)
     } else if let Some(month) = side.month {
-        let year = side.year.unwrap_or(if month >= earliest.month() { earliest.year() } else { earliest.year() + 1 });
+        let year = side.year.unwrap_or_else(|| if month >= earliest.month() { earliest.year() } else { earliest.year() + 1 });
         When::Month(year, month)
     } else {
         When::Year(side.year?)
@@ -467,7 +467,7 @@ pub fn partial_dates_of_written(written: &str, today: Date) -> Option<PartialDat
             }
         }
     }
-    let start_zone = start.zone.clone().or_else(|| end.as_ref()?.zone.clone()).unwrap_or(EVENT_TIME_ZONE.to_owned());
+    let start_zone = start.zone.clone().or_else(|| end.as_ref()?.zone.clone()).unwrap_or_else(|| EVENT_TIME_ZONE.to_owned());
     let start_when = when_of(&start, today, today)?;
     let end = match end {
         Some(end) => {
@@ -481,7 +481,7 @@ pub fn partial_dates_of_written(written: &str, today: Date) -> Option<PartialDat
 
 pub fn today_in_event_time_zone() -> Date {
     let now = Zoned::now();
-    now.in_tz(EVENT_TIME_ZONE).map_or(now.date(), |now| now.date())
+    now.in_tz(EVENT_TIME_ZONE).map_or_else(|_| now.date(), |now| now.date())
 }
 
 fn date_and_zone(partial_date: &str) -> Option<(&str, &str)> {
