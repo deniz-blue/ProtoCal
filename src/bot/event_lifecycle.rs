@@ -98,7 +98,6 @@ pub async fn start_event(bot: &Bot, thread: &CachedChannel, posted: Option<Event
         && let Some(emoji) = request_reaction_of(attend_emoji)
     {
         attendees.extend(earlier_attendees(bot, thread, &emoji).await);
-        bot.http.create_reaction(thread.id, thread.id.cast(), &emoji).await?;
         bot.http.create_pin(thread.id, thread.id.cast()).await?;
     }
     for attendee in attendees {

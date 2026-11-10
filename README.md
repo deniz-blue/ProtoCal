@@ -12,7 +12,7 @@ It is written in Rust with [twilight](https://github.com/twilight-rs/twilight), 
 
 ## What it does
 
-When a post is made in an event forum, the bot creates a role named `Event: <post name>`. It reacts to the first message with the forum's default reaction and pins that message. It gives the role to the post's author and to anyone who reacted before (the first 100 reactions). Then it posts a note that mentions the forum's announce role, if one is set, and the event role.
+When a post is made in an event forum, the bot creates a role named `Event: <post name>`. It pins the first message. It gives the role to the post's author and to anyone who reacted before (the first 100 reactions). Then it posts a note that mentions the forum's announce role, if one is set, and the event role.
 
 Reacting to the first message with the default reaction gives the role. Removing the reaction takes it away.
 
