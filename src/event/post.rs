@@ -37,7 +37,7 @@ pub struct NewEventButton {
 }
 
 impl NewEventButton {
-    pub fn custom_id(&self) -> String {
+    pub fn custom_id(self) -> String {
         match self.forum_id {
             Some(forum_id) => format!("{NEW_EVENT_BUTTON}:{forum_id}"),
             None => NEW_EVENT_BUTTON.to_owned(),
@@ -51,7 +51,7 @@ impl NewEventButton {
         }
     }
 
-    pub fn component(&self, label: &str, emoji: Option<EmojiReactionType>, style: ButtonStyle) -> Component {
+    pub fn component(self, label: &str, emoji: Option<EmojiReactionType>, style: ButtonStyle) -> Component {
         row(vec![Component::Button(Button {
             id: None,
             custom_id: Some(self.custom_id()),
