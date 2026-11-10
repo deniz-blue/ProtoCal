@@ -161,7 +161,7 @@ pub fn translations(value: &Value, path: &Path, issues: &mut Issues) {
                 seen.insert(tag.to_lowercase(), tag);
             }
         }
-        if !text.as_str().is_some_and(|text| !text.is_empty()) {
+        if text.as_str().is_none_or(str::is_empty) {
             report(issues, "must be text that is not empty", key(path, tag));
         }
     }
