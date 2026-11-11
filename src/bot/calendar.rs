@@ -27,7 +27,7 @@ impl Bot {
         for event in self.db.all_events()? {
             events_by_guild.entry(event.guild_id).or_default().push(event);
         }
-        let mut joined = Vec::new();
+        let mut joined = vec![];
         for (guild_id, events) in events_by_guild {
             if self.cache.guild(guild_id).is_none() {
                 continue;

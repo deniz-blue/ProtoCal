@@ -62,10 +62,8 @@ impl Bot {
         if self.cache.guild(guild_id).is_none() {
             return false;
         }
-        match self.forum_of_guild(guild_id, forum_id).await {
-            Some(forum) => self.everyone_permissions_in(&forum).contains(Permissions::VIEW_CHANNEL),
-            None => false,
-        }
+
+        self.forum_of_guild(guild_id, forum_id).await.is_some_and(|forum| self.everyone_permissions_in(&forum).contains(Permissions::VIEW_CHANNEL))
     }
 
     pub fn is_event_moderator(&self, member: &MemberRoles, forum: &CachedChannel) -> bool {
@@ -86,7 +84,7 @@ impl Bot {
     }
 
     pub async fn event_forums_open_to(&self, guild_id: Id<GuildMarker>, member: &MemberRoles) -> anyhow::Result<Vec<OpenEventForum>> {
-        let mut forums = Vec::new();
+        let mut forums = vec![];
         for settings in self.db.event_forums_of_guild(guild_id)? {
             let Some(channel) = self.forum_of_guild(guild_id, settings.forum_id).await else {
                 continue;

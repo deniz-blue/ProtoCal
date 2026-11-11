@@ -136,10 +136,10 @@ fn the_hosts_requests_list_each_event_then_its_state_and_end_with_a_new_event_bu
     assert_eq!(
         text_displays(&view.components)[1..],
         [
-            "**Bar meet**\n2026-12-05 18:00".to_owned(),
-            "Waiting for the moderators of <#2> in **LTFur**.".to_owned(),
-            "**Picnic**".to_owned(),
-            "❌ Denied by the moderators of <#2> in **LTFur**: no place yet".to_owned(),
+            "**Bar meet**\n2026-12-05 18:00",
+            "Waiting for the moderators of <#2> in **LTFur**.",
+            "**Picnic**",
+            "❌ Denied by the moderators of <#2> in **LTFur**: no place yet",
         ]
     );
     assert_eq!(button_labels(&view.components), ["Edit", "Withdraw", "Edit and send again", "Withdraw", "New event"]);
@@ -152,7 +152,7 @@ fn the_hosts_requests_stop_before_discords_limits_and_keep_the_new_event_button(
     let new_event = row(vec![button("meet-form:new:2", "New event", ButtonStyle::Primary)]);
     let view = host_requests_view(&many, "LTFur", vec![new_event]);
     assert!(component_count(&view.components) <= COMPONENTS_MAX);
-    assert_eq!(button_labels(&view.components).last().map(String::as_str), Some("New event"));
+    assert_eq!(button_labels(&view.components).last(), Some(&"New event"));
     assert!(button_labels(&view.components).len() > 2);
 }
 

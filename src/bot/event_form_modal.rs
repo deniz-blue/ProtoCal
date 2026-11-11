@@ -18,12 +18,7 @@ use crate::{
 };
 
 pub fn event_form_modal(target: &EventFormTarget, filled: Option<EventFields>) -> InteractionResponseData {
-    let filled = filled.unwrap_or(EventFields {
-        name: String::new(),
-        date: None,
-        place: None,
-        description: None,
-    });
+    let filled = filled.unwrap_or_default();
     let field = |custom_id, label, max_length: usize, value: Option<String>| TextField {
         custom_id,
         label,

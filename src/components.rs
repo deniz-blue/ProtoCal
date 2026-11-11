@@ -44,7 +44,7 @@ pub fn link_button(label: impl Into<String>, url: impl Into<String>) -> Componen
     })
 }
 
-pub fn row(components: Vec<Component>) -> Component {
+pub const fn row(components: Vec<Component>) -> Component {
     Component::ActionRow(ActionRow {
         id: None,
         components,
@@ -55,7 +55,7 @@ pub fn text_display(content: impl Into<String>) -> Component {
     Component::TextDisplay(TextDisplay { id: None, content: content.into() })
 }
 
-pub fn container(components: Vec<Component>) -> Component {
+pub const fn container(components: Vec<Component>) -> Component {
     Component::Container(Container { id: None, accent_color: None, spoiler: None, components })
 }
 
@@ -81,25 +81,25 @@ pub fn component_count(components: &[Component]) -> usize {
         .sum()
 }
 
-pub fn text_displays(components: &[Component]) -> Vec<String> {
+pub fn text_displays(components: &[Component]) -> Vec<&str> {
     components
         .iter()
         .flat_map(|component| match component {
             Component::Container(container) => text_displays(&container.components),
-            Component::TextDisplay(text) => vec![text.content.clone()],
-            _ => Vec::new(),
+            Component::TextDisplay(text) => vec![text.content.as_str()],
+            _ => vec![],
         })
         .collect()
 }
 
 #[cfg(test)]
-pub fn button_labels(components: &[Component]) -> Vec<String> {
+pub fn button_labels(components: &[Component]) -> Vec<&str> {
     components
         .iter()
         .flat_map(|component| match component {
             Component::ActionRow(row) => button_labels(&row.components),
-            Component::Button(button) => button.label.clone().into_iter().collect(),
-            _ => Vec::new(),
+            Component::Button(button) => button.label.as_deref().into_iter().collect(),
+            _ => vec![],
         })
         .collect()
 }

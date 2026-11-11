@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    sync::{Mutex, MutexGuard},
+    sync::{RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
 use twilight_gateway::Event;
@@ -78,7 +78,7 @@ impl CachedChannel {
         }
     }
 
-    pub fn is_thread(&self) -> bool {
+    pub const fn is_thread(&self) -> bool {
         self.kind.is_thread()
     }
 }
@@ -91,7 +91,7 @@ struct Known {
 
 #[derive(Default)]
 pub struct GuildCache {
-    known: Mutex<Known>,
+    known: RwLock<Known>,
 }
 
 impl GuildCache {
@@ -111,20 +111,20 @@ impl GuildCache {
                 }
             }
             Event::GuildUpdate(update) => {
-                if let Some(guild) = self.lock().guilds.get_mut(&update.id) {
-                    guild.name = update.name.clone();
+                if let Some(guild) = self.get_known_mut().guilds.get_mut(&update.id) {
+                    guild.name.clone_from(&update.name);
                     guild.owner_id = update.owner_id;
                 }
             }
             Event::GuildDelete(guild) => {
-                let mut known = self.lock();
+                let mut known = self.get_known_mut();
                 known.guilds.remove(&guild.id);
                 known.channels.retain(|_, channel| channel.guild_id != guild.id);
             }
             Event::RoleCreate(created) => self.insert_role(created.guild_id, &created.role),
             Event::RoleUpdate(updated) => self.insert_role(updated.guild_id, &updated.role),
             Event::RoleDelete(deleted) => {
-                if let Some(guild) = self.lock().guilds.get_mut(&deleted.guild_id) {
+                if let Some(guild) = self.get_known_mut().guilds.get_mut(&deleted.guild_id) {
                     guild.roles.remove(&deleted.role_id);
                 }
             }
@@ -138,38 +138,38 @@ impl GuildCache {
                 }
             }
             Event::ChannelDelete(channel) => {
-                self.lock().channels.remove(&channel.0.id);
+                self.get_known_mut().channels.remove(&channel.0.id);
             }
             Event::ThreadDelete(thread) => {
-                self.lock().channels.remove(&thread.id);
+                self.get_known_mut().channels.remove(&thread.id);
             }
             _ => {}
         }
     }
 
     pub fn insert_guild(&self, guild: CachedGuild) {
-        self.lock().guilds.insert(guild.id, guild);
+        self.get_known_mut().guilds.insert(guild.id, guild);
     }
 
     pub fn insert_channel(&self, channel: CachedChannel) {
-        self.lock().channels.insert(channel.id, channel);
+        self.get_known_mut().channels.insert(channel.id, channel);
     }
 
     pub fn guild(&self, guild_id: Id<GuildMarker>) -> Option<CachedGuild> {
-        self.lock().guilds.get(&guild_id).cloned()
+        self.get_known().guilds.get(&guild_id).cloned()
     }
 
     pub fn channel(&self, channel_id: Id<ChannelMarker>) -> Option<CachedChannel> {
-        self.lock().channels.get(&channel_id).cloned()
+        self.get_known().channels.get(&channel_id).cloned()
     }
 
     pub fn role(&self, guild_id: Id<GuildMarker>, role_id: Id<RoleMarker>) -> Option<CachedRole> {
-        self.lock().guilds.get(&guild_id)?.roles.get(&role_id).cloned()
+        self.get_known().guilds.get(&guild_id)?.roles.get(&role_id).cloned()
     }
 
     pub fn channels_of_guild(&self, guild_id: Id<GuildMarker>, kind: ChannelType) -> Vec<CachedChannel> {
         let mut channels: Vec<CachedChannel> = self
-            .lock()
+            .get_known()
             .channels
             .values()
             .filter(|channel| channel.guild_id == guild_id && channel.kind == kind)
@@ -180,7 +180,7 @@ impl GuildCache {
     }
 
     fn insert_role(&self, guild_id: Id<GuildMarker>, role: &Role) {
-        if let Some(guild) = self.lock().guilds.get_mut(&guild_id) {
+        if let Some(guild) = self.get_known_mut().guilds.get_mut(&guild_id) {
             guild.roles.insert(role.id, CachedRole::of(role));
         }
     }
@@ -191,7 +191,11 @@ impl GuildCache {
         }
     }
 
-    fn lock(&self) -> MutexGuard<'_, Known> {
-        self.known.lock().expect("guild cache lock poisoned")
+    fn get_known(&self) -> RwLockReadGuard<'_, Known> {
+        self.known.read().expect("guild cache lock poisoned")
+    }
+
+    fn get_known_mut(&self) -> RwLockWriteGuard<'_, Known> {
+        self.known.write().expect("guild cache lock poisoned")
     }
 }

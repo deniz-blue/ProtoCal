@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex, MutexGuard},
+    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
 use serde_json::{Value, json};
@@ -37,26 +37,30 @@ pub async fn rename_event_of_thread(bot: &Bot, thread: &CachedChannel) -> anyhow
 }
 
 #[derive(Clone, Default)]
-pub struct PendingThreadRenames(Arc<Mutex<HashMap<Id<ChannelMarker>, String>>>);
+pub struct PendingThreadRenames(Arc<RwLock<HashMap<Id<ChannelMarker>, String>>>);
 
 impl PendingThreadRenames {
     fn start(&self, thread_id: Id<ChannelMarker>, name: &str) {
-        self.lock().insert(thread_id, name.to_owned());
+        self.write().insert(thread_id, name.to_owned());
     }
 
     fn finish(&self, thread_id: Id<ChannelMarker>, name: &str) {
-        let mut renames = self.lock();
+        let mut renames = self.write();
         if renames.get(&thread_id).is_some_and(|latest| latest == name) {
             renames.remove(&thread_id);
         }
     }
 
     fn is_pending(&self, thread_id: Id<ChannelMarker>) -> bool {
-        self.lock().contains_key(&thread_id)
+        self.read().contains_key(&thread_id)
     }
 
-    fn lock(&self) -> MutexGuard<'_, HashMap<Id<ChannelMarker>, String>> {
-        self.0.lock().expect("thread rename lock poisoned")
+    fn read(&self) -> RwLockReadGuard<'_, HashMap<Id<ChannelMarker>, String>> {
+        self.0.read().expect("thread rename lock poisoned")
+    }
+
+    fn write(&self) -> RwLockWriteGuard<'_, HashMap<Id<ChannelMarker>, String>> {
+        self.0.write().expect("thread rename lock poisoned")
     }
 }
 
@@ -104,7 +108,7 @@ pub async fn save_event_document(bot: &Bot, thread: &CachedChannel, event: &Even
     let ping = notice.pings_role.then(|| format!("<@&{}>", event.role_id));
     let content: Vec<String> = ping.into_iter().chain(notice.lines).collect();
     let mentions = AllowedMentions {
-        roles: if notice.pings_role { vec![event.role_id] } else { Vec::new() },
+        roles: if notice.pings_role { vec![event.role_id] } else { vec![] },
         ..Default::default()
     };
     bot.http

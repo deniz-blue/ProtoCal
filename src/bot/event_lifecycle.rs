@@ -52,7 +52,7 @@ fn request_reaction_of(emoji: &ReactionEmoji) -> Option<RequestReactionType<'_>>
 
 async fn earlier_attendees(bot: &Bot, thread: &CachedChannel, emoji: &RequestReactionType<'_>) -> Vec<Id<UserMarker>> {
     let Ok(response) = bot.http.reactions(thread.id, thread.id.cast(), emoji).limit(100).await else {
-        return Vec::new();
+        return vec![];
     };
     let users = response.models().await.unwrap_or_default();
     users.into_iter().filter(|user| !user.bot).map(|user| user.id).collect()

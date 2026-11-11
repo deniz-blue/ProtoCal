@@ -17,12 +17,9 @@ use super::{
     event_lifecycle::{EventStart, start_event},
 };
 use crate::{
-    components::{emoji_of_text, link_button, row},
-    discord::{
-        answer::{Answer, Reply},
-        errors::{INVALID_FORM_BODY, is_discord_error},
-    },
-    event::post::NewEventButton,
+    components::{emoji_of_text, link_button, row}, discord::{
+        answer::{Answer, Reply}, cache::CachedChannel, errors::{INVALID_FORM_BODY, is_discord_error},
+    }, event::post::NewEventButton,
 };
 
 #[derive(CommandModel, CreateCommand)]
@@ -34,7 +31,7 @@ use crate::{
 )]
 pub struct OpenConfig;
 
-fn manage_guild() -> Permissions {
+const fn manage_guild() -> Permissions {
     Permissions::MANAGE_GUILD
 }
 
@@ -89,7 +86,7 @@ pub enum ButtonColor {
 }
 
 impl ButtonColor {
-    fn style(&self) -> ButtonStyle {
+    const fn style(&self) -> ButtonStyle {
         match self {
             Self::Blurple => ButtonStyle::Primary,
             Self::Grey => ButtonStyle::Secondary,
@@ -132,7 +129,7 @@ impl Bot {
     pub async fn command_mention(&self, guild_id: Id<GuildMarker>, command: &str) -> String {
         let name = command.split(' ').next().unwrap_or(command);
         let interaction = self.http.interaction(self.application_id);
-        let mut published = Vec::new();
+        let mut published = vec![];
         if let Ok(response) = interaction.guild_commands(guild_id).await {
             published.extend(response.models().await.unwrap_or_default());
         }
@@ -219,7 +216,7 @@ async fn register_post_outcome(bot: &Bot, answer: &Answer<'_>) -> anyhow::Result
     let interaction = answer.interaction;
     let channel_id = interaction.channel.as_ref().map(|channel| channel.id);
     let thread = match channel_id {
-        Some(channel_id) => bot.channel(channel_id).await.filter(|channel| channel.is_thread()),
+        Some(channel_id) => bot.channel(channel_id).await.filter(CachedChannel::is_thread),
         None => None,
     };
     let Some(thread) = thread else {

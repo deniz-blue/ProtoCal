@@ -35,7 +35,7 @@ pub const GONE: &str = "This request is gone: it was posted, withdrawn or ran ou
 const REVIEW_CHANNEL_UNREACHABLE: &str = "I could not post in this forum's review channel. Please tell staff.";
 const EDITORS_ONLY: &str = "Only the host or the moderators can edit this.";
 
-fn can_hold_messages(channel: &CachedChannel) -> bool {
+const fn can_hold_messages(channel: &CachedChannel) -> bool {
     !matches!(
         channel.kind,
         ChannelType::GuildCategory | ChannelType::GuildForum | ChannelType::GuildMedia | ChannelType::GuildDirectory
@@ -163,7 +163,7 @@ pub async fn save_event_request_edit(bot: &Bot, answer: &Answer<'_>, id: &str, f
 
 pub async fn drop_event_requests_that_are_over(bot: &Bot, now_unix_seconds: i64) -> anyhow::Result<()> {
     for request in bot.db.all_event_requests()? {
-        if !event_is_over_at(&request.document).is_some_and(|over_at| over_at <= now_unix_seconds) {
+        if event_is_over_at(&request.document).is_none_or(|over_at| over_at > now_unix_seconds) {
             continue;
         }
         let dropped = bot.db.forget_event_request(&request.id, crate::db::RequestMatch::AnyState)?;

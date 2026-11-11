@@ -1,4 +1,4 @@
-use std::sync::Mutex;
+use std::sync::RwLock;
 
 use twilight_http::Client;
 use twilight_model::{
@@ -18,7 +18,7 @@ pub struct Reply {
 
 impl Reply {
     pub fn text(content: impl Into<String>) -> Self {
-        Self { content: content.into(), components: Vec::new() }
+        Self { content: content.into(), components: vec![] }
     }
 }
 
@@ -40,20 +40,20 @@ pub struct Answer<'a> {
     http: &'a Client,
     application_id: Id<ApplicationMarker>,
     pub interaction: &'a Interaction,
-    state: Mutex<AnswerState>,
+    state: RwLock<AnswerState>,
 }
 
 impl<'a> Answer<'a> {
-    pub fn new(http: &'a Client, application_id: Id<ApplicationMarker>, interaction: &'a Interaction) -> Self {
-        Self { http, application_id, interaction, state: Mutex::new(AnswerState::Unanswered) }
+    pub const fn new(http: &'a Client, application_id: Id<ApplicationMarker>, interaction: &'a Interaction) -> Self {
+        Self { http, application_id, interaction, state: RwLock::new(AnswerState::Unanswered) }
     }
 
     fn state(&self) -> AnswerState {
-        *self.state.lock().expect("answer state lock poisoned")
+        *self.state.read().expect("answer state lock poisoned")
     }
 
     fn set_state(&self, state: AnswerState) {
-        *self.state.lock().expect("answer state lock poisoned") = state;
+        *self.state.write().expect("answer state lock poisoned") = state;
     }
 
     async fn respond(&self, kind: InteractionResponseType, data: Option<InteractionResponseData>) -> anyhow::Result<()> {

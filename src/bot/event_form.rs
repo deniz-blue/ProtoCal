@@ -70,7 +70,7 @@ fn forum_picker(bot: &Bot, member: &MemberRoles, forums: &[OpenEventForum]) -> C
 
 fn new_event_components(bot: &Bot, member: &MemberRoles, forums: &[OpenEventForum]) -> Vec<Component> {
     match forums {
-        [] => Vec::new(),
+        [] => vec![],
         [forum] => {
             let target = EventFormTarget::New(forum.channel.id);
             vec![row(vec![button(target.custom_id(), "New event", ButtonStyle::Primary)])]

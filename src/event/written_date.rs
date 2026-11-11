@@ -150,7 +150,7 @@ fn time_of(hour: i32, minute: i32) -> Option<(i8, i8)> {
 fn tokens_of(written: &str) -> Option<Vec<Token>> {
     let text = MERIDIEM.replace_all(written, "${1}m");
     let text = SUFFIX.replace_all(&text, "");
-    let mut tokens = Vec::new();
+    let mut tokens = vec![];
     for found in TOKEN.captures_iter(&text) {
         let group = |name: &str| found.name(name).map(|part| part.as_str());
         let token = if let Some(zone) = group("zone") {
@@ -198,21 +198,21 @@ struct WrittenSide {
 }
 
 impl WrittenSide {
-    fn has_date(&self) -> bool {
+    const fn has_date(&self) -> bool {
         self.year.is_some() || self.month.is_some() || self.day.is_some()
     }
 
-    fn has_day(&self) -> bool {
+    const fn has_day(&self) -> bool {
         self.day.is_some() || self.weekday.is_some() || self.days_from_today.is_some()
     }
 
-    fn is_empty(&self) -> bool {
+    const fn is_empty(&self) -> bool {
         !self.has_date() && !self.has_day() && self.time.is_none() && self.lone_number.is_none()
     }
 
     fn take_month_of(&mut self, day: Date) {
         self.month = Some(day.month());
-        self.year = self.year.or(Some(day.year()));
+        self.year = self.year.or_else(|| Some(day.year()));
     }
 
     fn move_to_month_after(&mut self, day: Date) -> Option<()> {
@@ -280,7 +280,7 @@ fn on_twenty_four_hour_clock(hour: i8, after_noon: bool) -> Option<i8> {
 
 fn side_of(tokens: &[Token]) -> Option<WrittenSide> {
     let mut side = WrittenSide::default();
-    let mut numbers: Vec<i32> = Vec::new();
+    let mut numbers: Vec<i32> = vec![];
     let mut year_before_numbers = false;
     let mut hour_next = false;
     for token in tokens {
@@ -401,7 +401,7 @@ fn when_of(side: &WrittenSide, today: Date, earliest: Date) -> Option<When> {
     let when = if names_a_day {
         When::Day(day_of(side, today, earliest)?)
     } else if let Some(month) = side.month {
-        let year = side.year.unwrap_or(if month >= earliest.month() { earliest.year() } else { earliest.year() + 1 });
+        let year = side.year.unwrap_or_else(|| if month >= earliest.month() { earliest.year() } else { earliest.year() + 1 });
         When::Month(year, month)
     } else {
         When::Year(side.year?)
@@ -467,7 +467,7 @@ pub fn partial_dates_of_written(written: &str, today: Date) -> Option<PartialDat
             }
         }
     }
-    let start_zone = start.zone.clone().or_else(|| end.as_ref()?.zone.clone()).unwrap_or(EVENT_TIME_ZONE.to_owned());
+    let start_zone = start.zone.clone().or_else(|| end.as_ref()?.zone.clone()).unwrap_or_else(|| EVENT_TIME_ZONE.to_owned());
     let start_when = when_of(&start, today, today)?;
     let end = match end {
         Some(end) => {
@@ -481,7 +481,7 @@ pub fn partial_dates_of_written(written: &str, today: Date) -> Option<PartialDat
 
 pub fn today_in_event_time_zone() -> Date {
     let now = Zoned::now();
-    now.in_tz(EVENT_TIME_ZONE).map_or(now.date(), |now| now.date())
+    now.in_tz(EVENT_TIME_ZONE).map_or_else(|_| now.date(), |now| now.date())
 }
 
 fn date_and_zone(partial_date: &str) -> Option<(&str, &str)> {

@@ -40,7 +40,7 @@ pub enum EventRequestAction {
 }
 
 impl EventRequestAction {
-    fn as_str(self) -> &'static str {
+    const fn as_str(self) -> &'static str {
         match self {
             Self::Post => "post",
             Self::Decline => "decline",
@@ -145,7 +145,7 @@ pub fn event_request_card(request: &EventRequest, outcome: EventRequestOutcome) 
         }
     };
     head.push(status);
-    with_preview(request, &head, Vec::new())
+    with_preview(request, &head, vec![])
 }
 
 pub fn changes_asked_message(event_name: &str, moderator_id: Id<UserMarker>, guild_name: &str, message: &str) -> String {
@@ -158,10 +158,10 @@ fn host_status(request: &EventRequest, outcome: EventRequestOutcome, guild_name:
     match outcome {
         EventRequestOutcome::Posted { thread_id, .. } => {
             let changes = if request.moderators_edited { ", with changes by the moderators" } else { "" };
-            (format!("✅ Posted: <#{thread_id}>{changes}"), Vec::new())
+            (format!("✅ Posted: <#{thread_id}>{changes}"), vec![])
         }
-        EventRequestOutcome::Withdrawn => ("↩️ You withdrew it.".to_owned(), Vec::new()),
-        EventRequestOutcome::Expired => (EXPIRED.to_owned(), Vec::new()),
+        EventRequestOutcome::Withdrawn => ("↩️ You withdrew it.".to_owned(), vec![]),
+        EventRequestOutcome::Expired => (EXPIRED.to_owned(), vec![]),
         EventRequestOutcome::Open if request.state == RequestState::Declined => (
             format!("❌ Denied by {moderators}{}", reason_of(request)),
             vec![edit_button(request, "Edit and send again"), withdraw()],

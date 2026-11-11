@@ -186,7 +186,7 @@ fn a_calendar_link_is_found_by_person_and_by_token_and_replaced_in_place() {
     let db = Database::in_memory();
     let link = CalendarLink { user_id: Id::new(4), token: "abc".to_owned(), created_at: 1 };
     db.save_calendar_link(&link).unwrap();
-    db.save_calendar_link(&CalendarLink { token: "def".to_owned(), ..link.clone() }).unwrap();
+    db.save_calendar_link(&CalendarLink { token: "def".to_owned(), ..link }).unwrap();
     assert_eq!(db.calendar_link_of_token("abc").unwrap(), None);
     assert_eq!(db.calendar_link_of_user(Id::new(4)).unwrap().unwrap().token, "def");
 }

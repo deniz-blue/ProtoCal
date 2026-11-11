@@ -44,8 +44,7 @@ pub fn answer_unless_unchanged(request_headers: &HeaderMap, body: String, media_
     let known: Vec<&str> = request_headers
         .get(header::IF_NONE_MATCH)
         .and_then(|value| value.to_str().ok())
-        .map(|value| value.split(',').map(str::trim).collect())
-        .unwrap_or_default();
+        .map_or_default(|value| value.split(',').map(str::trim).collect());
     let unchanged = known.iter().any(|tag| *tag == etag || *tag == "*");
     let headers = [
         (header::ETAG, HeaderValue::from_str(&etag).expect("etag is ASCII")),

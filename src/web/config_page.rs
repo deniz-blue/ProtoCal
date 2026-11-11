@@ -28,7 +28,7 @@ const SAVE_STATE_SCRIPT: &str = "<script>
 \taddEventListener(\"pageshow\", () => form.classList.remove(\"busy\"));
 </script>";
 
-fn shown_if(shown: bool, text: &str) -> &str {
+const fn shown_if(shown: bool, text: &str) -> &str {
     if shown { text } else { "" }
 }
 
@@ -101,11 +101,11 @@ fn index_row(links: &Links, forum: &ForumConfig) -> String {
 fn forum_block(links: &Links, forum: &ForumConfig, options: &ConfigPageOptions) -> String {
     let id = forum.forum_id.to_string();
     let shown_name = forum.name.as_ref().map_or_else(|| id.clone(), |name| format!("#{name}"));
-    let label_name = forum.name.clone().unwrap_or_else(|| id.clone());
+    let label_name = forum.name.as_ref().unwrap_or(&id);
     let details = [
         warning_row(forum.name.is_some() && !forum.has_default_reaction, "no default reaction"),
-        announce_row(forum, options.roles, &label_name),
-        review_row(forum, options.review_channels, &label_name),
+        announce_row(forum, options.roles, label_name),
+        review_row(forum, options.review_channels, label_name),
         warning_row(forum.everyone_can_post, "@everyone has Create Posts"),
         index_row(links, forum),
     ]

@@ -25,7 +25,7 @@ fn change_line(icon: &str, before: Option<String>, after: Option<String>, unset:
 }
 
 pub fn event_change_notice(before: &Value, after: &Value) -> Option<EventChangeNotice> {
-    let mut lines = Vec::new();
+    let mut lines = vec![];
     if before.get("status") != after.get("status") {
         let status = event_status_as_discord(after).unwrap_or("✅ **On as listed again**");
         lines.push(status.to_owned());

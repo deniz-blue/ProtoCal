@@ -24,8 +24,7 @@ fn date_as_discord(date: &PartialDate) -> String {
         Precision::Time => format!("<t:{}:f>", unix_seconds_of(date)),
         Precision::Day => {
             let weekday = Date::new(date.year as i16, month, day)
-                .map(|civil| WEEKDAY_NAMES[civil.weekday().to_monday_zero_offset() as usize])
-                .unwrap_or_default();
+                .map_or_default(|civil| WEEKDAY_NAMES[civil.weekday().to_monday_zero_offset() as usize]);
             format!("{weekday}, {day} {} {}", month_name(month), date.year)
         }
         Precision::Month => format!("{} {}", month_name(month), date.year),

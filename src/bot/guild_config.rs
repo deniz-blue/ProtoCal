@@ -123,14 +123,16 @@ impl Bot {
                 }
                 continue;
             }
-            let chosen = |of: &'_ HashMap<String, String>, allowed: &HashSet<String>| {
-                of.get(&key).filter(|id| allowed.contains(*id)).cloned()
-            };
+
+            fn chosen<'a>(of: &'a HashMap<String, String>, key: &String, allowed: &'a HashSet<String>) -> Option<&'a String> {
+                of.get(key).filter(|&id| allowed.contains(id))
+            }
+
             self.db.save_event_forum(&EventForum {
                 forum_id: forum.forum_id,
                 guild_id: guild.id,
-                announce_role_id: chosen(&change.announce_role_id_of, &role_ids).and_then(|id| id.parse().ok()),
-                review_channel_id: chosen(&change.review_channel_id_of, &review_channel_ids).and_then(|id| id.parse().ok()),
+                announce_role_id: chosen(&change.announce_role_id_of, &key, &role_ids).and_then(|id| id.parse().ok()),
+                review_channel_id: chosen(&change.review_channel_id_of, &key, &review_channel_ids).and_then(|id| id.parse().ok()),
             })?;
         }
         Ok(())
