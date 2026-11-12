@@ -24,7 +24,7 @@ pub type Issues = Vec<Issue>;
 pub type Check<'a> = &'a dyn Fn(&Value, &Path, &mut Issues);
 
 pub static COMPONENT_TYPE_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)+#(0|[1-9]\d*)$").expect("component type")
+    Regex::new(r"^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)+#(0|[1-9][0-9]*)$").expect("component type")
 });
 pub static LANGUAGE_TAG_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^[A-Za-z]{1,8}(-[A-Za-z0-9]{1,8})*$").expect("language tag pattern")
