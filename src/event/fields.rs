@@ -5,9 +5,7 @@ use super::document::{
     DESCRIPTION_TYPE, EventField, EventFieldProblem, event_description_of,
     event_name_of, event_place_of, is_description, validate_event_document,
 };
-use super::parent::{is_parent_relation, parent_relation, parent_url_of};
 use super::written_date::{partial_dates_of_written, written_of_partial_dates};
-use crate::open_evnt::remote::https_url_of;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct EventFields {
@@ -15,7 +13,6 @@ pub struct EventFields {
     pub date: Option<String>,
     pub place: Option<String>,
     pub description: Option<String>,
-    pub part_of: Option<String>,
 }
 
 pub fn fields_of_event_document(document: &Value) -> EventFields {
@@ -26,7 +23,6 @@ pub fn fields_of_event_document(document: &Value) -> EventFields {
         date: partial_date("start").map(|start| written_of_partial_dates(start, partial_date("end"))),
         place: event_place_of(document),
         description: event_description_of(document),
-        part_of: parent_url_of(document),
     }
 }
 
@@ -79,31 +75,14 @@ fn venue_with(venue: Option<&Value>, shown_place: Option<&str>, place: Option<&s
     without_null(rest)
 }
 
-fn components_with(components: Option<&Value>, shown: &EventFields, fields: &EventFields) -> Option<Value> {
-    let description_changed = fields.description != shown.description;
-    let part_of_changed = fields.part_of != shown.part_of;
-    if !description_changed && !part_of_changed {
+fn components_with(components: Option<&Value>, shown_description: Option<&str>, description: Option<&str>) -> Option<Value> {
+    if description == shown_description {
         return components.cloned();
     }
-    let written = description_changed
-        .then(|| fields.description.as_deref().map(|text| json!({ "$type": DESCRIPTION_TYPE, "content": { "und": text } })))
-        .flatten();
-    let kept = components.and_then(Value::as_array).into_iter().flatten().filter(|component| {
-        !(description_changed && is_description(component)) && !(part_of_changed && is_parent_relation(component))
-    });
-    let parent = part_of_changed.then(|| fields.part_of.as_deref().map(parent_relation)).flatten();
-    let changed: Vec<Value> = written.into_iter().chain(kept.cloned()).chain(parent).collect();
+    let written = description.map(|text| json!({ "$type": DESCRIPTION_TYPE, "content": { "und": text } }));
+    let kept = components.and_then(Value::as_array).into_iter().flatten().filter(|component| !is_description(component));
+    let changed: Vec<Value> = written.into_iter().chain(kept.cloned()).collect();
     (!changed.is_empty()).then_some(Value::Array(changed))
-}
-
-fn read_part_of(written: Option<&str>) -> Result<Option<String>, EventFieldProblem> {
-    let Some(written) = written else {
-        return Ok(None);
-    };
-    https_url_of(written).map(|url| Some(url.to_string())).map_err(|problem| EventFieldProblem {
-        field: Some(EventField::PartOf),
-        message: format!("Part of: `{written}` {problem}. Paste the link of an Open Evnt event."),
-    })
 }
 
 fn read_dates(written: Option<&str>, today: Date) -> Result<(Option<String>, Option<String>), EventFieldProblem> {
@@ -121,7 +100,6 @@ fn read_dates(written: Option<&str>, today: Date) -> Result<(Option<String>, Opt
 
 pub fn event_document_of_fields(fields: &EventFields, base: &Value, today: Date) -> Result<Value, EventFieldProblem> {
     let (start, end) = read_dates(fields.date.as_deref(), today)?;
-    let fields = &EventFields { part_of: read_part_of(fields.part_of.as_deref())?, ..fields.clone() };
     let shown = fields_of_event_document(base);
     let mut document = base.as_object().cloned().unwrap_or_default();
     if fields.name != shown.name {
@@ -131,7 +109,7 @@ pub fn event_document_of_fields(fields: &EventFields, base: &Value, today: Date)
     set_or_remove(&mut document, "venue", venue);
     let occurrences = occurrences_with(base.get("occurrences"), start, end);
     set_or_remove(&mut document, "occurrences", occurrences);
-    let components = components_with(base.get("components"), &shown, fields);
+    let components = components_with(base.get("components"), shown.description.as_deref(), fields.description.as_deref());
     set_or_remove(&mut document, "components", components);
     document.retain(|_, value| !value.is_null());
     let document = Value::Object(document);

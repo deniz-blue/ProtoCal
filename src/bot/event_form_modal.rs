@@ -28,20 +28,17 @@ pub fn event_form_modal(target: &EventFormTarget, filled: Option<EventFields>) -
         placeholder: None,
         value: value.map(|value| cut_to_utf16_length(&value, max_length).to_owned()),
     };
-    let creating = matches!(target, EventFormTarget::New(_));
-    let mut fields = vec![
-        TextField { required: true, ..field("name", "Name", THREAD_NAME_MAX, Some(filled.name)) },
-        TextField { placeholder: Some("12 October 18:00 - 22:00"), ..field("date", "Date", 100, filled.date) },
-        field("place", "Place", 200, filled.place),
-        TextField { paragraph: true, ..field("description", "Description", 1500, filled.description) },
-    ];
-    if !creating {
-        fields.push(TextField {
-            placeholder: Some("Link to an Open Evnt event, like a convention"),
-            ..field("part_of", "Part of", 500, filled.part_of)
-        });
-    }
-    modal(target.custom_id(), if creating { "New event" } else { "Edit event" }, fields)
+    let title = if matches!(target, EventFormTarget::New(_)) { "New event" } else { "Edit event" };
+    modal(
+        target.custom_id(),
+        title,
+        vec![
+            TextField { required: true, ..field("name", "Name", THREAD_NAME_MAX, Some(filled.name)) },
+            TextField { placeholder: Some("12 October 18:00 - 22:00"), ..field("date", "Date", 100, filled.date) },
+            field("place", "Place", 200, filled.place),
+            TextField { paragraph: true, ..field("description", "Description", 1500, filled.description) },
+        ],
+    )
 }
 
 pub fn fields_of_submitted_event_form(data: &ModalInteractionData) -> EventFields {
@@ -50,7 +47,6 @@ pub fn fields_of_submitted_event_form(data: &ModalInteractionData) -> EventField
         date: submitted_value(data, "date"),
         place: submitted_value(data, "place"),
         description: submitted_value(data, "description"),
-        part_of: submitted_value(data, "part_of"),
     }
 }
 

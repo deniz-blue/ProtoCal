@@ -1,6 +1,7 @@
 use std::{env, path::PathBuf};
 
 use anyhow::Context as _;
+use twilight_model::id::{Id, marker::ChannelMarker};
 use url::Url;
 
 #[derive(Clone, Debug)]
@@ -62,6 +63,11 @@ pub fn with_query(address: &str, pairs: &[(&str, &str)]) -> String {
 impl Links {
     pub fn event_document_url(&self, thread_id: impl std::fmt::Display) -> String {
         format!("{}/events/{thread_id}.evnt.json", self.public_url)
+    }
+
+    pub fn thread_of_event_document_url(&self, document_url: &str) -> Option<Id<ChannelMarker>> {
+        let file = document_url.strip_prefix(&self.public_url)?.strip_prefix("/events/")?;
+        file.strip_suffix(".evnt.json")?.parse().ok()
     }
 
     pub fn forum_index_url(&self, forum_id: impl std::fmt::Display) -> String {

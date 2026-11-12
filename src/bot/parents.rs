@@ -8,7 +8,7 @@ use serde_json::Value;
 
 use super::Bot;
 use crate::{
-    event::parent::{PartOf, parent_url_of},
+    event::parent::{ParentLink, PartOf, parent_url_of},
     open_evnt::remote::{FetchProblem, fetch_event_document},
 };
 
@@ -24,10 +24,12 @@ impl ParentDocuments {
         (fetched_at.elapsed() < FRESH_FOR).then(|| document.clone())
     }
 
-    fn remember(&self, url: &str, fetched: Option<Value>) {
+    fn remember(&self, url: &str, fetched: Option<Value>) -> Option<Value> {
         let mut known = self.0.write().expect("parent documents lock poisoned");
         let last_good = known.remove(url).and_then(|(_, document)| document);
-        known.insert(url.to_owned(), (Instant::now(), fetched.or(last_good)));
+        let kept = fetched.or(last_good);
+        known.insert(url.to_owned(), (Instant::now(), kept.clone()));
+        kept
     }
 }
 
@@ -38,21 +40,34 @@ impl Bot {
         fetched
     }
 
+    async fn outside_parent(&self, url: &str) -> Option<Value> {
+        match self.parent_documents.fresh(url) {
+            Some(known) => known,
+            None => {
+                let fetched = fetch_event_document(url).await.ok();
+                self.parent_documents.remember(url, fetched)
+            }
+        }
+    }
+
     pub async fn part_of(&self, document: &Value) -> Option<PartOf> {
         let url = parent_url_of(document)?;
-        let parent = match self.parent_documents.fresh(&url) {
-            Some(parent) => parent,
-            None => self.fetch_parent(&url).await.ok(),
-        };
-        Some(PartOf::of_parent(self.links.document_view_url(&url), parent.as_ref()))
+        if let Some(thread_id) = self.links.thread_of_event_document_url(&url)
+            && let Ok(Some(parent)) = self.db.event_of_thread(thread_id)
+        {
+            return Some(PartOf::of_parent(ParentLink::Thread(thread_id), Some(&parent.document)));
+        }
+        let parent = self.outside_parent(&url).await;
+        let link = ParentLink::outside(self.links.document_view_url(&url), parent.as_ref());
+        Some(PartOf::of_parent(link, parent.as_ref()))
     }
 
     pub async fn problem_with_new_parent(&self, base: &Value, document: &Value) -> Option<String> {
         let url = parent_url_of(document)?;
-        if parent_url_of(base).as_deref() == Some(url.as_str()) {
+        if parent_url_of(base).as_deref() == Some(url.as_str()) || self.links.thread_of_event_document_url(&url).is_some() {
             return None;
         }
         let problem = self.fetch_parent(&url).await.err()?;
-        Some(format!("Part of: `{url}` {problem}. Paste the link of an Open Evnt event."))
+        Some(format!("Part of: `{url}` {problem}."))
     }
 }

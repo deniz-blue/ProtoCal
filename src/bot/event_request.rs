@@ -151,9 +151,6 @@ pub async fn save_event_request_edit(bot: &Bot, answer: &Answer<'_>, id: &str, f
         Err(problem) => return reject_draft(bot, answer, &form.target, form.fields, &problem.message).await,
     };
     answer.defer_update().await?;
-    if let Some(problem) = bot.problem_with_new_parent(&request.document, &document).await {
-        return reject_draft(bot, answer, &form.target, form.fields, &problem).await;
-    }
     bot.forget_rejected_draft(user_id, &form.target.key());
     let Some(edited) = bot.db.edit_event_request(id, &document, editor, now_unix_seconds())? else {
         return answer.tell(GONE).await;

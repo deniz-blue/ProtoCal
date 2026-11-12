@@ -1,12 +1,13 @@
 use jiff::civil::Date;
 use serde_json::{Value, json};
+use twilight_model::id::Id;
 
 use super::{
     change_notice::{EventChangeNotice, event_change_notice},
     dates::{event_dates_as_discord, event_is_over_at},
     document::{EventField, EventFieldProblem, new_event_document},
     fields::{EventFields, event_document_of_fields, fields_of_event_document},
-    parent::{PartOf, parent_url_of},
+    parent::{ParentLink, PartOf, RELATION_TYPE, parent_url_of},
     post::event_post_content,
 };
 
@@ -21,7 +22,6 @@ struct Changed<'a> {
     date: Option<&'a str>,
     place: Option<&'a str>,
     description: Option<&'a str>,
-    part_of: Option<&'a str>,
 }
 
 fn fields(changed: Changed) -> EventFields {
@@ -30,7 +30,6 @@ fn fields(changed: Changed) -> EventFields {
         date: changed.date.map(str::to_owned),
         place: changed.place.map(str::to_owned),
         description: changed.description.map(str::to_owned),
-        part_of: changed.part_of.map(str::to_owned),
     }
 }
 
@@ -56,7 +55,6 @@ fn the_form_makes_a_valid_open_evnt_document() {
         date: Some("2026-12-05 18:00 - 02:00"),
         place: Some("Snekutis, Vilnius"),
         description: Some("Bring snacks"),
-        ..Default::default()
     });
     assert_eq!(
         document,
@@ -105,7 +103,6 @@ fn the_form_shows_what_the_document_holds_and_saving_it_unchanged_keeps_the_docu
             date: Some("2026-12-05 18:00".to_owned()),
             place: Some("Stiklių g. 7, Vilnius".to_owned()),
             description: None,
-            part_of: None,
         }
     );
     assert_eq!(event_document_of_fields(&shown, &from_an_app, today()).unwrap(), from_an_app);
@@ -165,7 +162,7 @@ fn an_event_is_over_a_day_after_it_ends_or_after_its_start_when_it_has_no_end() 
 
 #[test]
 fn a_moved_time_or_place_pings_a_description_change_does_not_no_change_says_nothing() {
-    let planned = || Changed { date: Some("2026-12-05 18:00"), place: Some("Bar"), description: Some("Snacks"), ..Default::default() };
+    let planned = || Changed { date: Some("2026-12-05 18:00"), place: Some("Bar"), description: Some("Snacks") };
     let before = document_of(planned());
     let moved = Changed { date: Some("2026-12-05 19:00"), place: Some("Park"), ..planned() };
     let notice = event_change_notice(&before, &document_on(moved, &before)).unwrap();
@@ -190,33 +187,14 @@ fn a_moved_time_or_place_pings_a_description_change_does_not_no_change_says_noth
 
 const CONVENTION: &str = "https://deniz.blue/events-data/2026/conventions/lituanicon37.evnt.json";
 
-#[test]
-fn part_of_writes_a_parent_relation_and_an_empty_field_removes_it() {
-    let with_parent = document_of(Changed { description: Some("Meet at the entrance"), part_of: Some(CONVENTION), ..Default::default() });
-    assert_eq!(
-        with_parent["components"],
-        json!([
-            { "$type": "directory.evnt.text.markdown#0", "content": { "und": "Meet at the entrance" } },
-            { "$type": "directory.evnt.component.relation#0", "type": "parent", "target": CONVENTION },
-        ])
-    );
-    assert_eq!(parent_url_of(&with_parent).as_deref(), Some(CONVENTION));
-    assert_eq!(fields_of_event_document(&with_parent).part_of.as_deref(), Some(CONVENTION));
-
-    let unchanged = document_on(Changed { description: Some("Meet at the entrance"), part_of: Some(CONVENTION), ..Default::default() }, &with_parent);
-    assert_eq!(unchanged, with_parent);
-
-    let without = document_on(Changed { description: Some("Meet at the entrance"), ..Default::default() }, &with_parent);
-    assert_eq!(without["components"], json!([{ "$type": "directory.evnt.text.markdown#0", "content": { "und": "Meet at the entrance" } }]));
-}
-
-#[test]
-fn part_of_must_be_an_https_link() {
-    for written in ["http://deniz.blue/a.evnt.json", "lituanicon", "https://192.168.1.2/a.evnt.json"] {
-        let problem = problem_of(Changed { part_of: Some(written), ..Default::default() });
-        assert_eq!(problem.field, Some(EventField::PartOf), "{written}");
-        assert!(problem.message.starts_with("Part of: "), "{}", problem.message);
+fn with_parent(document: &Value, target: &str) -> Value {
+    let mut changed = document.clone();
+    let relation = json!({ "$type": RELATION_TYPE, "type": "parent", "target": target });
+    match changed.get_mut("components").and_then(Value::as_array_mut) {
+        Some(components) => components.push(relation),
+        None => changed["components"] = json!([relation]),
     }
+    changed
 }
 
 #[test]
@@ -227,12 +205,29 @@ fn the_post_names_the_parent_event_and_its_dates() {
         "name": { "en": "Lituanicon 37" },
         "occurrences": [{ "start": "2026-08-15[Europe/Vilnius]", "end": "2026-08-16[Europe/Vilnius]" }],
     });
-    let part_of = PartOf::of_parent("https://eventsl.ink/event?url=x".to_owned(), Some(&parent));
+    let view_url = "https://eventsl.ink/event?url=x".to_owned();
+    let part_of = PartOf::of_parent(ParentLink::outside(view_url.clone(), Some(&parent)), Some(&parent));
     let line = part_of.line();
     assert!(line.starts_with("🧩 **Part of:** [Lituanicon 37](<https://eventsl.ink/event?url=x>) · "), "{line}");
-    let document = document_of(Changed { part_of: Some(CONVENTION), ..Default::default() });
+    let document = with_parent(&document_of(Changed::default()), CONVENTION);
     assert!(event_post_content(&document, Some(&part_of), &[], 0, 2000).contains(&line));
 
-    let unreachable = PartOf::of_parent("https://eventsl.ink/event?url=x".to_owned(), None);
+    let unreachable = PartOf::of_parent(ParentLink::outside(view_url, None), None);
     assert_eq!(unreachable.line(), "🧩 **Part of:** [another event](<https://eventsl.ink/event?url=x>)");
+    let in_this_server = PartOf::of_parent(ParentLink::Thread(Id::new(42)), None);
+    assert_eq!(in_this_server.line(), "🧩 **Part of:** <#42>");
+}
+
+#[test]
+fn editing_the_form_keeps_the_parent_relation() {
+    let with_parent = with_parent(&document_of(Changed { description: Some("Meet at the entrance"), ..Default::default() }), CONVENTION);
+    let edited = document_on(Changed { description: Some("Meet at the gate"), ..Default::default() }, &with_parent);
+    assert_eq!(parent_url_of(&edited).as_deref(), Some(CONVENTION));
+    assert_eq!(
+        edited["components"],
+        json!([
+            { "$type": "directory.evnt.text.markdown#0", "content": { "und": "Meet at the gate" } },
+            { "$type": "directory.evnt.component.relation#0", "type": "parent", "target": CONVENTION },
+        ])
+    );
 }

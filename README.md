@@ -25,10 +25,11 @@ While an event runs:
 
 ### Posting an event
 
-- `/event new` opens a form with Name, Date, Place and Description. Date takes a start and an optional end, written loosely: `12 October 18:00`, `12.10 18:00 - 22:00`, `2026 10 22`, `5-7 December`, `saturday 19:00`, `2026-12` for a month, with month and weekday names in English, Lithuanian or Turkish. A year left out is the next one that puts the date ahead, and an end time earlier than the start is on the next day. Times are in Europe/Vilnius unless the value ends in another zone in brackets, such as `2026-12-05 18:00 [Europe/London]`. Editing an event adds Part of, which takes the https link of another Open Evnt event, such as the convention a meetup is at; it is saved as a `parent` relation, and the post shows that event's name and dates. The link is fetched when it is first given, and a form whose link is not an event comes back. A form that does not read comes back with the reason and a Fix it button that reopens it with the same values.
+- `/event new` opens a form with Name, Date, Place and Description. Date takes a start and an optional end, written loosely: `12 October 18:00`, `12.10 18:00 - 22:00`, `2026 10 22`, `5-7 December`, `saturday 19:00`, `2026-12` for a month, with month and weekday names in English, Lithuanian or Turkish. A year left out is the next one that puts the date ahead, and an end time earlier than the start is on the next day. Times are in Europe/Vilnius unless the value ends in another zone in brackets, such as `2026-12-05 18:00 [Europe/London]`. A form that does not read comes back with the reason and a Fix it button that reopens it with the same values.
 - `/event register`, run inside a post someone made by hand, makes that post an event.
 - `/event send-new-button` posts a New event button in the channel it is run in. Pressing it does what `/event new` does, with the forum already picked if one was given.
 - An event the bot posted has an Edit button, and a View button when everyone can see the forum. Edit offers Edit on Discord (the same form) and Edit via App (the editor on eventsl.ink). Organizers and moderators can edit.
+- An event can be part of another, such as a meetup at a convention. That is set in Edit via App and saved as a `parent` relation, and the post shows the other event's name and dates. The other event's link is fetched when it is first saved, and a save whose link is not an Open Evnt event is refused.
 
 ### Review
 
