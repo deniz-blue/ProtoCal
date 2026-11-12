@@ -4,6 +4,7 @@ pub mod dates;
 pub mod document;
 pub mod fields;
 pub mod index;
+pub mod parent;
 pub mod post;
 pub mod request_view;
 pub mod written_date;

@@ -45,7 +45,8 @@ const fn can_hold_messages(channel: &CachedChannel) -> bool {
 async fn send_host_dm(bot: &Bot, request: &EventRequest, guild_name: &str) -> anyhow::Result<Option<MessageAt>> {
     let channel = bot.http.create_private_channel(request.host_id).await?.model().await?;
     let with_dm = EventRequest { host_dm: Some(MessageAt { channel_id: channel.id, message_id: Id::new(1) }), ..request.clone() };
-    let view = event_request_host_view(&with_dm, EventRequestOutcome::Open, guild_name);
+    let part_of = bot.part_of(&request.document).await;
+    let view = event_request_host_view(&with_dm, part_of.as_ref(), EventRequestOutcome::Open, guild_name);
     match post_view(bot, channel.id, &view).await {
         Ok(at) => Ok(Some(at)),
         Err(error) if is_direct_message_refused(&error) => Ok(None),
@@ -88,7 +89,8 @@ pub async fn send_event_request(
     };
     let guild_name = bot.guild_name(forum.channel.guild_id);
     let sent = EventRequest { host_dm: send_host_dm(bot, &request, &guild_name).await?, ..request };
-    let card = match post_view(bot, review_channel.id, &event_request_card(&sent, EventRequestOutcome::Open)).await {
+    let part_of = bot.part_of(&sent.document).await;
+    let card = match post_view(bot, review_channel.id, &event_request_card(&sent, part_of.as_ref(), EventRequestOutcome::Open)).await {
         Ok(card) => card,
         Err(error) => {
             tracing::warn!(forum = %forum.channel.id, ?error, "Event request card was not posted");
@@ -104,7 +106,7 @@ pub async fn send_event_request(
     tracing::info!(request = %id, forum = %forum.channel.id, "Event request sent");
     let reply = match saved.host_dm {
         Some(_) => Reply::text(format!("Sent to the moderators of <#{}>.", forum.channel.id)),
-        None => event_request_host_view(&saved, EventRequestOutcome::Open, &guild_name).into(),
+        None => event_request_host_view(&saved, part_of.as_ref(), EventRequestOutcome::Open, &guild_name).into(),
     };
     answer.edit_reply(reply).await
 }
@@ -148,8 +150,11 @@ pub async fn save_event_request_edit(bot: &Bot, answer: &Answer<'_>, id: &str, f
         Ok(document) => document,
         Err(problem) => return reject_draft(bot, answer, &form.target, form.fields, &problem.message).await,
     };
-    bot.forget_rejected_draft(user_id, &form.target.key());
     answer.defer_update().await?;
+    if let Some(problem) = bot.problem_with_new_parent(&request.document, &document).await {
+        return reject_draft(bot, answer, &form.target, form.fields, &problem).await;
+    }
+    bot.forget_rejected_draft(user_id, &form.target.key());
     let Some(edited) = bot.db.edit_event_request(id, &document, editor, now_unix_seconds())? else {
         return answer.tell(GONE).await;
     };

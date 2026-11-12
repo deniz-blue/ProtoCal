@@ -43,7 +43,8 @@ pub async fn edit_card(bot: &Bot, request: &EventRequest, outcome: EventRequestO
         return;
     };
     let at = MessageAt { channel_id: request.card_channel_id, message_id };
-    if let Err(error) = send_view(bot, at, &event_request_card(request, outcome)).await {
+    let part_of = bot.part_of(&request.document).await;
+    if let Err(error) = send_view(bot, at, &event_request_card(request, part_of.as_ref(), outcome)).await {
         tracing::warn!(request = %request.id, ?error, "Event request card was not edited");
     }
 }
@@ -52,14 +53,16 @@ pub async fn edit_host_dm(bot: &Bot, request: &EventRequest, outcome: EventReque
     let Some(dm) = request.host_dm else {
         return;
     };
-    let view = event_request_host_view(request, outcome, &bot.guild_name(request.guild_id));
+    let part_of = bot.part_of(&request.document).await;
+    let view = event_request_host_view(request, part_of.as_ref(), outcome, &bot.guild_name(request.guild_id));
     if let Err(error) = send_view(bot, dm, &view).await {
         tracing::warn!(request = %request.id, ?error, "Event request DM was not edited");
     }
 }
 
 async fn repost_card(bot: &Bot, request: &EventRequest) -> anyhow::Result<()> {
-    let card = event_request_card(request, EventRequestOutcome::Open);
+    let part_of = bot.part_of(&request.document).await;
+    let card = event_request_card(request, part_of.as_ref(), EventRequestOutcome::Open);
     let posted = match post_view(bot, request.card_channel_id, &card).await {
         Ok(posted) => posted,
         Err(error) => {
@@ -98,7 +101,8 @@ async fn show_to_host(bot: &Bot, answer: &Answer<'_>, request: &EventRequest, ou
         if pressed_in.is_some_and(is_host_requests_list) {
             return redraw_host_requests(bot, answer, request.guild_id, request.host_id).await;
         }
-        let view = event_request_host_view(request, outcome, &bot.guild_name(request.guild_id));
+        let part_of = bot.part_of(&request.document).await;
+        let view = event_request_host_view(request, part_of.as_ref(), outcome, &bot.guild_name(request.guild_id));
         answer.edit_reply(view.into()).await?;
     }
     Ok(())

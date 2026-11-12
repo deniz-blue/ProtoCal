@@ -159,7 +159,8 @@ pub async fn post_new_event(
     organizers: Vec<Id<UserMarker>>,
     document: &Value,
 ) -> anyhow::Result<Id<ChannelMarker>> {
-    let content = event_post_content(document, &organizers, now_unix_seconds(), MESSAGE_MAX);
+    let part_of = bot.part_of(document).await;
+    let content = event_post_content(document, part_of.as_ref(), &organizers, now_unix_seconds(), MESSAGE_MAX);
     let mentions = AllowedMentions::default();
     let posted = bot
         .http

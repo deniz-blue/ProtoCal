@@ -93,7 +93,11 @@ impl Links {
     }
 
     pub fn event_view_url(&self, thread_id: impl std::fmt::Display) -> String {
-        with_query(&self.viewer_url, &[("url", &self.event_document_url(thread_id))])
+        self.document_view_url(&self.event_document_url(thread_id))
+    }
+
+    pub fn document_view_url(&self, document_url: &str) -> String {
+        with_query(&self.viewer_url, &[("url", document_url)])
     }
 
     pub fn editor_url(&self, document: &str, token: &str) -> String {

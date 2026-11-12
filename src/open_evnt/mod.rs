@@ -2,6 +2,7 @@ mod checks;
 mod component_shape;
 mod document_shape;
 pub mod partial_date;
+pub mod remote;
 #[cfg(test)]
 mod partial_date_tests;
 

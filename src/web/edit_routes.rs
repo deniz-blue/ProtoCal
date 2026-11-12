@@ -58,6 +58,9 @@ pub async fn save_edit_return(State(bot): State<Arc<Bot>>, body: Bytes) -> Answe
     if let Err(problem) = validate_event_document(&event) {
         return edit_answer(StatusCode::BAD_REQUEST, &problem.message, thread_url);
     }
+    if let Some(problem) = bot.problem_with_new_parent(&event_post.document, &event).await {
+        return edit_answer(StatusCode::BAD_REQUEST, &problem, thread_url);
+    }
     crate::bot::event_lifecycle::save_event_document(&bot, &thread, &event_post, event).await?;
     bot.edit_grants.spend(token);
     edit_answer(StatusCode::OK, "Saved.", thread_url)

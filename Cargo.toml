@@ -9,6 +9,10 @@ anyhow = "1"
 axum = "0.8"
 base64 = "0.22"
 dotenvy = "0.15"
+http-body-util = "0.1"
+hyper = { version = "1", features = ["client", "http1"] }
+hyper-rustls = { version = "0.27", default-features = false, features = ["http1", "tls12"] }
+hyper-util = { version = "0.1", features = ["client-legacy", "http1", "tokio"] }
 jiff = { version = "0.2", features = ["tzdb-bundle-always"] }
 rand = "0.9"
 regex = "1"
@@ -18,6 +22,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 sha2 = "0.10"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "signal", "sync", "net"] }
+tower-service = "0.3"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 twilight-gateway = { version = "0.17", default-features = false, features = ["rustls-webpki-roots", "twilight-http", "zlib"] }
@@ -26,8 +31,8 @@ twilight-interactions = "0.17"
 twilight-model = "0.17"
 url = "2"
 uuid = { version = "1", features = ["v4"] }
+webpki-roots = "1"
 
 [dev-dependencies]
-http-body-util = "0.1"
 tower = { version = "0.5", features = ["util"] }
 tokio = { version = "1", features = ["test-util"] }

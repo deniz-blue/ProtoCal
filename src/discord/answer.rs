@@ -132,10 +132,10 @@ impl<'a> Answer<'a> {
     }
 
     pub async fn reply_or_edit(&self, reply: Reply) -> anyhow::Result<()> {
-        if self.state() == AnswerState::DeferredReply {
-            self.edit_reply(reply).await
-        } else {
-            self.reply_privately(reply).await
+        match self.state() {
+            AnswerState::Unanswered => self.reply_privately(reply).await,
+            AnswerState::DeferredReply => self.edit_reply(reply).await,
+            _ => self.follow_up_privately(reply).await,
         }
     }
 

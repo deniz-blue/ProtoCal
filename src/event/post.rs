@@ -14,6 +14,7 @@ use super::{
     change_notice::event_status_as_discord,
     dates::event_dates_as_discord,
     document::{event_description_of, event_name_of, event_place_of},
+    parent::PartOf,
 };
 use crate::{
     components::{button, link_button, row},
@@ -114,6 +115,7 @@ pub fn thread_name_of(document: &Value) -> String {
 
 pub fn event_post_content(
     document: &Value,
+    part_of: Option<&PartOf>,
     organizers: &[Id<UserMarker>],
     updated_at_unix_seconds: i64,
     max_length: usize,
@@ -121,6 +123,7 @@ pub fn event_post_content(
     let mentions: Vec<String> = organizers.iter().map(|id| format!("<@{id}>")).collect();
     let facts: Vec<String> = [
         event_status_as_discord(document).map(str::to_owned),
+        part_of.map(PartOf::line),
         event_dates_as_discord(document, true).map(|dates| format!("📆 **Date & Time:** {dates}")),
         event_place_of(document)
             .filter(|place| !place.is_empty())

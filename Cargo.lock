@@ -922,6 +922,9 @@ dependencies = [
  "base64",
  "dotenvy",
  "http-body-util",
+ "hyper",
+ "hyper-rustls",
+ "hyper-util",
  "jiff",
  "rand",
  "regex",
@@ -932,6 +935,7 @@ dependencies = [
  "sha2",
  "tokio",
  "tower",
+ "tower-service",
  "tracing",
  "tracing-subscriber",
  "twilight-gateway",
@@ -940,6 +944,7 @@ dependencies = [
  "twilight-model",
  "url",
  "uuid",
+ "webpki-roots",
 ]
 
 [[package]]

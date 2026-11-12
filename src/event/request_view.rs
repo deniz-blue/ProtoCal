@@ -12,6 +12,7 @@ use twilight_model::{
 
 use super::{
     fields::fields_of_event_document,
+    parent::PartOf,
     post::{MESSAGE_MAX, EventFormTarget, event_post_content},
 };
 use crate::{
@@ -93,11 +94,11 @@ fn edit_button(request: &EventRequest, label: &str) -> Component {
     button(target.custom_id(), label, ButtonStyle::Secondary)
 }
 
-fn with_preview(request: &EventRequest, head: &[String], buttons: Vec<Component>) -> MessageView {
+fn with_preview(request: &EventRequest, part_of: Option<&PartOf>, head: &[String], buttons: Vec<Component>) -> MessageView {
     let lines: Vec<&str> = head.iter().map(String::as_str).filter(|line| !line.is_empty()).collect();
     let top = lines.join("\n");
     let room = MESSAGE_MAX.min(TEXT_DISPLAYS_MAX.saturating_sub(utf16_length(&top)));
-    let preview = event_post_content(&request.document, &[request.host_id], request.updated_at, room);
+    let preview = event_post_content(&request.document, part_of, &[request.host_id], request.updated_at, room);
     let mut components = vec![container(vec![text_display(preview)])];
     if !top.is_empty() {
         components.push(text_display(top));
@@ -116,7 +117,7 @@ fn reason_of(request: &EventRequest) -> String {
         .map_or_else(String::new, |reason| format!(": {reason}"))
 }
 
-pub fn event_request_card(request: &EventRequest, outcome: EventRequestOutcome) -> MessageView {
+pub fn event_request_card(request: &EventRequest, part_of: Option<&PartOf>, outcome: EventRequestOutcome) -> MessageView {
     let mut head = vec![
         format!("<@{}> wants to post this in <#{}>", request.host_id, request.forum_id),
         if request.host_edited { "-# Edited by the host".to_owned() } else { String::new() },
@@ -141,11 +142,11 @@ pub fn event_request_card(request: &EventRequest, outcome: EventRequestOutcome) 
                 button(event_request_custom_id(EventRequestAction::Reply, &request.id), "Reply", ButtonStyle::Secondary),
                 button(event_request_custom_id(EventRequestAction::Decline, &request.id), "Deny", ButtonStyle::Danger),
             ];
-            return with_preview(request, &head, buttons);
+            return with_preview(request, part_of, &head, buttons);
         }
     };
     head.push(status);
-    with_preview(request, &head, vec![])
+    with_preview(request, part_of, &head, vec![])
 }
 
 pub fn changes_asked_message(event_name: &str, moderator_id: Id<UserMarker>, guild_name: &str, message: &str) -> String {
@@ -170,13 +171,18 @@ fn host_status(request: &EventRequest, outcome: EventRequestOutcome, guild_name:
     }
 }
 
-pub fn event_request_host_view(request: &EventRequest, outcome: EventRequestOutcome, guild_name: &str) -> MessageView {
+pub fn event_request_host_view(
+    request: &EventRequest,
+    part_of: Option<&PartOf>,
+    outcome: EventRequestOutcome,
+    guild_name: &str,
+) -> MessageView {
     let (status, buttons) = host_status(request, outcome, guild_name);
     let only_followed_here = outcome == EventRequestOutcome::Open
         && request.state == RequestState::Waiting
         && request.host_dm.is_none();
     let closed_dms = if only_followed_here { CLOSED_DMS.to_owned() } else { String::new() };
-    with_preview(request, &[status, closed_dms], buttons)
+    with_preview(request, part_of, &[status, closed_dms], buttons)
 }
 
 fn fits_in_one_message(components: &[Component]) -> bool {

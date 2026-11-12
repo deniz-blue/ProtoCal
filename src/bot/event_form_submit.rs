@@ -42,6 +42,9 @@ async fn submit_new_event(bot: &Bot, answer: &Answer<'_>, forum_id: Id<ChannelMa
     let Some((member, forum)) = open else {
         return answer.edit_reply(Reply::text("That is not an event forum you can post in any more.")).await;
     };
+    if let Some(problem) = bot.problem_with_new_parent(&base, &document).await {
+        return reject_draft(bot, answer, &form.target, form.fields, &problem).await;
+    }
     if bot.event_goes_to_review(&member, &forum) {
         return send_event_request(bot, answer, &forum, document, form).await;
     }
@@ -65,10 +68,13 @@ pub async fn submit_event_form(bot: &Bot, answer: &Answer<'_>, target: EventForm
         Ok(document) => document,
         Err(problem) => return reject_draft(bot, answer, &form.target, form.fields, &problem.message).await,
     };
+    answer.defer_privately().await?;
+    if let Some(problem) = bot.problem_with_new_parent(&event.document, &document).await {
+        return reject_draft(bot, answer, &form.target, form.fields, &problem).await;
+    }
     if let Some(user_id) = answer.interaction.author_id() {
         bot.forget_rejected_draft(user_id, &form.target.key());
     }
-    answer.defer_privately().await?;
     let Some(thread) = bot.channel(thread_id).await.filter(CachedChannel::is_thread) else {
         return answer.edit_reply(Reply::text("That event's post is gone.")).await;
     };

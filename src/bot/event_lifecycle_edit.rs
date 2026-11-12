@@ -82,7 +82,8 @@ pub async fn save_event_document(bot: &Bot, thread: &CachedChannel, event: &Even
     bot.db.describe_event(thread.id, &document, updated_at)?;
     let starter = bot.message(thread.id, thread.id.cast()).await;
     if starter.is_some_and(|starter| starter.author.id == bot.user_id) {
-        let content = event_post_content(&document, &event.organizers, updated_at, MESSAGE_MAX);
+        let part_of = bot.part_of(&document).await;
+        let content = event_post_content(&document, part_of.as_ref(), &event.organizers, updated_at, MESSAGE_MAX);
         let viewable = bot.everyone_can_view_forum(thread.guild_id, event.forum_id).await;
         let buttons = [event_post_buttons(&bot.links, thread.id, viewable)];
         bot.http

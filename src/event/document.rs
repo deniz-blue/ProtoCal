@@ -11,6 +11,7 @@ pub enum EventField {
     Date,
     Place,
     Description,
+    PartOf,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

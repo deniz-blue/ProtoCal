@@ -37,6 +37,10 @@ pub fn event_form_modal(target: &EventFormTarget, filled: Option<EventFields>) -
             TextField { placeholder: Some("12 October 18:00 - 22:00"), ..field("date", "Date", 100, filled.date) },
             field("place", "Place", 200, filled.place),
             TextField { paragraph: true, ..field("description", "Description", 1500, filled.description) },
+            TextField {
+                placeholder: Some("Link to an Open Evnt event, like a convention"),
+                ..field("part_of", "Part of", 500, filled.part_of)
+            },
         ],
     )
 }
@@ -47,6 +51,7 @@ pub fn fields_of_submitted_event_form(data: &ModalInteractionData) -> EventField
         date: submitted_value(data, "date"),
         place: submitted_value(data, "place"),
         description: submitted_value(data, "description"),
+        part_of: submitted_value(data, "part_of"),
     }
 }
 

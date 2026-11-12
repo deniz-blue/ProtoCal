@@ -14,6 +14,7 @@ mod event_request_moderation;
 mod event_roles;
 pub mod guild_config;
 mod interactions;
+mod parents;
 mod pins;
 
 use std::{
@@ -68,6 +69,7 @@ pub struct Bot {
     pub edit_grants: GrantStore<EditGrant>,
     pending_thread_renames: event_lifecycle_edit::PendingThreadRenames,
     rejected_drafts: RwLock<HashMap<String, EventFields>>,
+    parent_documents: parents::ParentDocuments,
 }
 
 impl Bot {
@@ -85,11 +87,12 @@ impl Bot {
             edit_grants: GrantStore::default(),
             pending_thread_renames: event_lifecycle_edit::PendingThreadRenames::default(),
             rejected_drafts: RwLock::default(),
+            parent_documents: parents::ParentDocuments::default(),
         }
     }
 
     pub fn intents() -> Intents {
-        Intents::GUILDS | Intents::GUILD_MESSAGE_REACTIONS | Intents::GUILD_MESSAGES
+        Intents::GUILDS | Intents::GUILD_MESSAGE_REACTIONS | Intents::GUILD_MESSAGES | Intents::MESSAGE_CONTENT
     }
 
     pub async fn channel(&self, channel_id: Id<ChannelMarker>) -> Option<CachedChannel> {

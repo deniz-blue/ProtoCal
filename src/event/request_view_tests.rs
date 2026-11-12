@@ -48,12 +48,12 @@ fn event_and_head(view: &MessageView) -> (String, String) {
 
 #[test]
 fn a_waiting_requests_card_asks_the_moderators_and_the_host_can_edit_or_withdraw() {
-    let card = event_request_card(&request(), EventRequestOutcome::Open);
+    let card = event_request_card(&request(), None, EventRequestOutcome::Open);
     let (event, head) = event_and_head(&card);
     assert_eq!(head, "<@3> wants to post this in <#2>");
     assert!(event.starts_with("## Bar meet"));
     assert_eq!(button_labels(&card.components), ["Approve", "Edit", "Reply", "Deny"]);
-    let host_view = event_request_host_view(&request(), EventRequestOutcome::Open, "LTFur");
+    let host_view = event_request_host_view(&request(), None, EventRequestOutcome::Open, "LTFur");
     assert_eq!(button_labels(&host_view.components), ["Edit", "Withdraw"]);
 }
 
@@ -65,10 +65,10 @@ fn a_declined_request_shows_who_and_why_and_the_host_can_send_it_again() {
         decline_reason: Some("no place yet".to_owned()),
         ..request()
     };
-    let card = event_request_card(&declined, EventRequestOutcome::Open);
+    let card = event_request_card(&declined, None, EventRequestOutcome::Open);
     assert!(matches(&card, r"❌ Denied by <@8>: no place yet"));
     assert!(button_labels(&card.components).is_empty());
-    let host_view = event_request_host_view(&declined, EventRequestOutcome::Open, "LTFur");
+    let host_view = event_request_host_view(&declined, None, EventRequestOutcome::Open, "LTFur");
     assert!(matches(&host_view, r"(?m)^❌ Denied by the moderators of <#2> in \*\*LTFur\*\*: no place yet"));
     assert_eq!(button_labels(&host_view.components), ["Edit and send again", "Withdraw"]);
 }
@@ -77,18 +77,18 @@ fn a_declined_request_shows_who_and_why_and_the_host_can_send_it_again() {
 fn a_posted_request_links_the_post_on_both_sides_and_has_no_buttons() {
     let posted = EventRequestOutcome::Posted { by: Id::new(8), thread_id: Id::new(9) };
     let edited = EventRequest { moderators_edited: true, ..request() };
-    let card = event_request_card(&edited, posted);
+    let card = event_request_card(&edited, None, posted);
     assert!(matches(&card, r"✅ Approved by <@8>: <#9>"));
     assert!(button_labels(&card.components).is_empty());
-    let host_view = event_request_host_view(&edited, posted, "LTFur");
+    let host_view = event_request_host_view(&edited, None, posted, "LTFur");
     assert!(matches(&host_view, r"(?m)^✅ Posted: <#9>, with changes by the moderators"));
 }
 
 #[test]
 fn closed_dms_are_noted_on_the_card_and_in_the_hosts_reply() {
     let closed = EventRequest { host_dm: None, ..request() };
-    assert!(matches(&event_request_card(&closed, EventRequestOutcome::Open), "DMs are closed"));
-    assert!(matches(&event_request_host_view(&closed, EventRequestOutcome::Open, "LTFur"), "DMs are closed"));
+    assert!(matches(&event_request_card(&closed, None, EventRequestOutcome::Open), "DMs are closed"));
+    assert!(matches(&event_request_host_view(&closed, None, EventRequestOutcome::Open, "LTFur"), "DMs are closed"));
 }
 
 #[test]
@@ -104,7 +104,7 @@ fn a_long_description_fits_the_card_and_the_event_part_fits_a_post() {
         }),
         ..request()
     };
-    for view in [event_request_card(&long, EventRequestOutcome::Open), event_request_host_view(&long, EventRequestOutcome::Open, "LTFur")] {
+    for view in [event_request_card(&long, None, EventRequestOutcome::Open), event_request_host_view(&long, None, EventRequestOutcome::Open, "LTFur")] {
         let texts = text_displays(&view.components);
         assert!(texts.iter().map(|text| utf16_length(text)).sum::<usize>() <= TEXT_DISPLAYS_MAX);
         assert!(utf16_length(&event_and_head(&view).0) <= MESSAGE_MAX);
@@ -164,7 +164,7 @@ fn the_hosts_requests_list_is_told_apart_from_a_single_request_and_can_be_empty(
     assert_eq!(text_displays(&empty.components), ["Nothing of yours is waiting."]);
     assert_eq!(button_labels(&empty.components), ["New event"]);
     let closed = EventRequest { host_dm: None, ..request() };
-    assert!(!is_host_requests_list(&event_request_host_view(&closed, EventRequestOutcome::Open, "LTFur").components));
+    assert!(!is_host_requests_list(&event_request_host_view(&closed, None, EventRequestOutcome::Open, "LTFur").components));
 }
 
 #[test]
