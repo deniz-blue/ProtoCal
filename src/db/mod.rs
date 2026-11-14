@@ -1,4 +1,5 @@
 mod calendar_links;
+mod event_attendees;
 mod event_forums;
 mod event_requests;
 mod events;
@@ -32,6 +33,11 @@ const SCHEMA: &str = "
         `organizers` text NOT NULL,
         `document` text NOT NULL,
         `updated_at` integer NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS `event_attendees` (
+        `thread_id` text NOT NULL,
+        `user_id` text NOT NULL,
+        PRIMARY KEY (`thread_id`, `user_id`)
     );
     CREATE TABLE IF NOT EXISTS `calendar_links` (
         `user_id` text PRIMARY KEY NOT NULL,

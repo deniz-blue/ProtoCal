@@ -190,3 +190,20 @@ fn a_calendar_link_is_found_by_person_and_by_token_and_replaced_in_place() {
     assert_eq!(db.calendar_link_of_token("abc").unwrap(), None);
     assert_eq!(db.calendar_link_of_user(Id::new(4)).unwrap().unwrap().token, "def");
 }
+
+#[test]
+fn an_attendee_is_listed_until_removed_and_forgotten_with_the_event() {
+    let db = Database::in_memory();
+    db.save_event(&event()).unwrap();
+    let other = EventPost { thread_id: Id::new(11), ..event() };
+    db.save_event(&other).unwrap();
+    db.add_event_attendee(event().thread_id, Id::new(4)).unwrap();
+    db.add_event_attendee(event().thread_id, Id::new(4)).unwrap();
+    db.add_event_attendee(other.thread_id, Id::new(4)).unwrap();
+    let mut attended = db.events_attended_by(Id::new(4)).unwrap();
+    attended.sort();
+    assert_eq!(attended, [event().thread_id, other.thread_id]);
+    db.remove_event_attendee(other.thread_id, Id::new(4)).unwrap();
+    db.forget_event(event().thread_id).unwrap();
+    assert!(db.events_attended_by(Id::new(4)).unwrap().is_empty());
+}

@@ -53,7 +53,7 @@ pub async fn change_attendance(bot: &Bot, change: RoleChange, reaction: &Gateway
     {
         return Ok(());
     }
-    let Some(thread) = bot.channel(reaction.channel_id).await else {
+    let Some(thread) = bot.channel(reaction.channel_id).await.filter(|thread| !thread.locked) else {
         return Ok(());
     };
     change_event_role(bot, &thread, change, reaction.user_id, event.role_id).await
@@ -98,6 +98,10 @@ pub async fn change_event_role(
     user_id: Id<UserMarker>,
     role_id: Id<RoleMarker>,
 ) -> anyhow::Result<()> {
+    match change {
+        RoleChange::Add => bot.db.add_event_attendee(thread.id, user_id)?,
+        RoleChange::Remove => bot.db.remove_event_attendee(thread.id, user_id)?,
+    }
     let changed = match change {
         RoleChange::Add => add_event_role(bot, thread, user_id, role_id).await,
         RoleChange::Remove => bot

@@ -94,6 +94,7 @@ impl Database {
 
     pub fn forget_event(&self, thread_id: Id<ChannelMarker>) -> anyhow::Result<()> {
         self.with(|db| {
+            db.execute("DELETE FROM event_attendees WHERE thread_id = ?1", [thread_id.to_string()])?;
             db.execute("DELETE FROM events WHERE thread_id = ?1", [thread_id.to_string()])
                 .map(drop)
         })

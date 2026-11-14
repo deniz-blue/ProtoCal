@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use twilight_model::{
     guild::Permissions,
@@ -27,6 +27,7 @@ impl Bot {
         for event in self.db.all_events()? {
             events_by_guild.entry(event.guild_id).or_default().push(event);
         }
+        let attended: BTreeSet<_> = self.db.events_attended_by(user_id)?.into_iter().collect();
         let mut joined = vec![];
         for (guild_id, events) in events_by_guild {
             if self.cache.guild(guild_id).is_none() {
@@ -36,7 +37,7 @@ impl Bot {
                 continue;
             };
             for event in events {
-                if !member.role_ids.contains(&event.role_id) {
+                if !member.role_ids.contains(&event.role_id) && !attended.contains(&event.thread_id) {
                     continue;
                 }
                 let forum = self.forum_of_guild(guild_id, event.forum_id).await;

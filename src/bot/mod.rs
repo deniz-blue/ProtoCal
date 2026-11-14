@@ -150,14 +150,14 @@ impl Bot {
                 }
                 event_lifecycle::start_event_of_new_post(self, &thread).await
             }
-            Event::ThreadDelete(thread) => event_lifecycle::end_event(self, thread.id).await,
+            Event::ThreadDelete(thread) => event_lifecycle::delete_event(self, thread.id).await,
             Event::ThreadUpdate(thread) => {
                 let Some(after) = self.cache.channel(thread.id) else {
                     return Ok(());
                 };
                 let was_locked = thread_before.as_ref().is_some_and(|before| before.locked);
                 if !was_locked && after.locked {
-                    return event_lifecycle::end_event(self, after.id).await;
+                    return event_lifecycle::delete_event_role(self, after.id).await;
                 }
                 if thread_before.is_none_or(|before| before.name != after.name) {
                     event_lifecycle::rename_event_of_thread(self, &after).await?;
