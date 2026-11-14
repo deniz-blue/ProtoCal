@@ -9,7 +9,7 @@ use std::{
 
 use tokio::sync::Notify;
 
-use super::{Bot, event_lifecycle::end_events_that_are_over, event_request::drop_event_requests_that_are_over};
+use super::{Bot, event_lifecycle::delete_expired_event_roles, event_request::drop_event_requests_that_are_over};
 use crate::time::now_unix_seconds;
 
 const CHECK_EVERY: Duration = Duration::from_mins(15);
@@ -36,7 +36,7 @@ impl EventClock {
 
 async fn check(bot: &Bot) -> anyhow::Result<()> {
     let now = now_unix_seconds();
-    end_events_that_are_over(bot, now).await?;
+    delete_expired_event_roles(bot, now).await?;
     drop_event_requests_that_are_over(bot, now).await
 }
 

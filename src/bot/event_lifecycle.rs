@@ -7,7 +7,7 @@ use twilight_model::{
     channel::{ChannelType, message::AllowedMentions},
     id::{
         Id,
-        marker::{ChannelMarker, EmojiMarker, GuildMarker, UserMarker},
+        marker::{ChannelMarker, EmojiMarker, UserMarker},
     },
 };
 
@@ -20,7 +20,7 @@ use crate::{
     discord::cache::CachedChannel,
     event::{
         attend_reaction::ReactionEmoji,
-        dates::event_is_over_at,
+        dates::event_role_has_expired,
         document::new_event_document,
         post::{MESSAGE_MAX, event_post_buttons, event_post_content, thread_name_of},
     },
@@ -181,28 +181,41 @@ pub async fn post_new_event(
         .await?;
     let mut document = document.clone();
     document["id"] = Value::String(bot.links.event_document_url(thread.id));
-    start_event(bot, &thread, Some(EventAsPosted { organizers, document })).await?;
-    Ok(thread.id)
+    match start_event(bot, &thread, Some(EventAsPosted { organizers, document })).await {
+        Ok(EventStart::Started) => Ok(thread.id),
+        outcome => {
+            bot.http.delete_channel(thread.id).await?;
+            anyhow::bail!("Event {} was not started: {outcome:?}", thread.id)
+        }
+    }
 }
 
-pub async fn end_event(bot: &Bot, guild_id: Id<GuildMarker>, thread_id: Id<ChannelMarker>) -> anyhow::Result<()> {
+pub fn forum_has_attend_reaction(forum: &CachedChannel) -> bool {
+    forum.default_reaction.as_ref().and_then(ReactionEmoji::key).is_some()
+}
+
+async fn delete_event_role(bot: &Bot, event: &EventPost, reason: &str) {
+    match bot.http.delete_role(event.guild_id, event.role_id).reason(reason).await {
+        Ok(_) => tracing::info!(thread = %event.thread_id, role = %event.role_id, "Event role deleted"),
+        Err(error) => tracing::warn!(thread = %event.thread_id, ?error, "Event role was not deleted"),
+    }
+}
+
+pub async fn end_event(bot: &Bot, thread_id: Id<ChannelMarker>) -> anyhow::Result<()> {
     let Some(event) = bot.db.event_of_thread(thread_id)? else {
         return Ok(());
     };
-    let reason = format!("Event {thread_id} ended");
-    if let Err(error) = bot.http.delete_role(guild_id, event.role_id).reason(&reason).await {
-        tracing::warn!(thread = %thread_id, ?error, "Event role was not deleted");
-    }
+    delete_event_role(bot, &event, &format!("Event {thread_id} ended")).await;
     bot.db.forget_event(thread_id)?;
     tracing::info!(thread = %thread_id, "Event ended");
     Ok(())
 }
 
-pub async fn end_events_that_are_over(bot: &Bot, now_unix_seconds: i64) -> anyhow::Result<()> {
+pub async fn delete_expired_event_roles(bot: &Bot, now_unix_seconds: i64) -> anyhow::Result<()> {
     for event in bot.db.all_events()? {
-        let over = event_is_over_at(&event.document).is_some_and(|over_at| over_at <= now_unix_seconds);
-        if over && bot.cache.guild(event.guild_id).is_some() {
-            end_event(bot, event.guild_id, event.thread_id).await?;
+        let role_exists = bot.cache.role(event.guild_id, event.role_id).is_some();
+        if role_exists && event_role_has_expired(&event.document, now_unix_seconds) {
+            delete_event_role(bot, &event, &format!("Event {} was a week ago", event.thread_id)).await;
         }
     }
     Ok(())

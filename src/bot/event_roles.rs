@@ -15,7 +15,11 @@ use crate::{
         cache::CachedChannel,
         errors::{UNKNOWN_ROLE, is_discord_error},
     },
-    event::attend_reaction::{ReactionEmoji, role_name_of_event},
+    event::{
+        attend_reaction::{ReactionEmoji, role_name_of_event},
+        dates::event_role_has_expired,
+    },
+    time::now_unix_seconds,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -44,7 +48,9 @@ pub async fn change_attendance(bot: &Bot, change: RoleChange, reaction: &Gateway
     let Some(event) = bot.db.event_of_thread(reaction.channel_id)? else {
         return Ok(());
     };
-    if reaction_emoji_of(&reaction.emoji).key().as_deref() != Some(event.attend_reaction.as_str()) {
+    if reaction_emoji_of(&reaction.emoji).key().as_deref() != Some(event.attend_reaction.as_str())
+        || event_role_has_expired(&event.document, now_unix_seconds())
+    {
         return Ok(());
     }
     let Some(thread) = bot.channel(reaction.channel_id).await else {

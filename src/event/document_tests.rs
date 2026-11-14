@@ -4,7 +4,7 @@ use twilight_model::id::Id;
 
 use super::{
     change_notice::{EventChangeNotice, event_change_notice},
-    dates::{event_dates_as_discord, event_is_over_at},
+    dates::{event_dates_as_discord, event_is_over_at, event_role_expires_at, event_role_has_expired},
     document::{EventField, EventFieldProblem, new_event_document},
     fields::{EventFields, event_document_of_fields, fields_of_event_document},
     parent::{ParentLink, PartOf, RELATION_TYPE, parent_url_of},
@@ -158,6 +158,15 @@ fn an_event_is_over_a_day_after_it_ends_or_after_its_start_when_it_has_no_end() 
     let weekend = Changed { date: Some("2026-12-05 - 2026-12-07"), ..Default::default() };
     assert_eq!(over(weekend), Some(unix("2026-12-08T22:00:00Z")));
     assert_eq!(over(Changed::default()), None);
+}
+
+#[test]
+fn an_event_role_expires_a_week_after_the_event_ends_and_never_without_a_date() {
+    let day_only = document_of(Changed { date: Some("2026-11-15"), ..Default::default() });
+    assert_eq!(event_role_expires_at(&day_only), Some(unix("2026-11-22T22:00:00Z")));
+    assert!(!event_role_has_expired(&day_only, unix("2026-11-22T21:59:59Z")));
+    assert!(event_role_has_expired(&day_only, unix("2026-11-22T22:00:00Z")));
+    assert!(!event_role_has_expired(&document_of(Changed::default()), i64::MAX));
 }
 
 #[test]

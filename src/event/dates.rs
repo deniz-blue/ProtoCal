@@ -4,6 +4,7 @@ use serde_json::Value;
 use crate::open_evnt::{PartialDate, Precision};
 
 const SECONDS_PER_DAY: i64 = 86_400;
+const EVENT_ROLE_DAYS_AFTER_END: i64 = 7;
 const MONTH_NAMES: [&str; 12] = [
     "January", "February", "March", "April", "May", "June", "July", "August", "September",
     "October", "November", "December",
@@ -76,7 +77,7 @@ pub fn event_dates_as_discord(document: &Value, relative: bool) -> Option<String
     (!dates.is_empty()).then(|| dates.join(", "))
 }
 
-pub fn event_is_over_at(document: &Value) -> Option<i64> {
+fn event_ends_at(document: &Value) -> Option<i64> {
     occurrences_of(document)
         .iter()
         .filter_map(|occurrence| occurrence.get("end").or_else(|| occurrence.get("start")))
@@ -84,5 +85,16 @@ pub fn event_is_over_at(document: &Value) -> Option<i64> {
         .filter_map(PartialDate::parse)
         .map(|date| date.end_epoch_milliseconds().div_euclid(1000))
         .max()
-        .map(|last| last + SECONDS_PER_DAY)
+}
+
+pub fn event_is_over_at(document: &Value) -> Option<i64> {
+    event_ends_at(document).map(|end| end + SECONDS_PER_DAY)
+}
+
+pub fn event_role_expires_at(document: &Value) -> Option<i64> {
+    event_ends_at(document).map(|end| end + EVENT_ROLE_DAYS_AFTER_END * SECONDS_PER_DAY)
+}
+
+pub fn event_role_has_expired(document: &Value, now_unix_seconds: i64) -> bool {
+    event_role_expires_at(document).is_some_and(|expires_at| expires_at <= now_unix_seconds)
 }

@@ -2,7 +2,7 @@ use twilight_model::{application::interaction::modal::ModalInteractionData, chan
 
 use super::{
     Bot,
-    event_lifecycle::post_new_event,
+    event_lifecycle::{forum_has_attend_reaction, post_new_event},
     event_request::{GONE, moderated_forum_of},
     event_request_messages::show_event_request,
 };
@@ -28,6 +28,13 @@ fn moderators_only(request: &EventRequest) -> String {
     format!("Only the moderators of <#{}> can do this.", request.forum_id)
 }
 
+fn no_attend_reaction(request: &EventRequest) -> String {
+    format!(
+        "<#{}> has no default reaction, so nobody could react to attend. Set one in the forum's settings, then press Post again.",
+        request.forum_id
+    )
+}
+
 fn not_waiting(request: Option<EventRequest>) -> String {
     match request {
         Some(request) if request.state == RequestState::Declined => match request.handled_by {
@@ -46,6 +53,9 @@ pub async fn post_event_request(bot: &Bot, answer: &Answer<'_>, id: &str) -> any
     let Some(forum) = moderated_forum_of(bot, &request, user_id).await else {
         return answer.tell(moderators_only(&request)).await;
     };
+    if !forum_has_attend_reaction(&forum) {
+        return answer.tell(no_attend_reaction(&request)).await;
+    }
     let Some(claimed) = bot.db.forget_event_request(id, RequestMatch::OnlyIfWaiting)? else {
         return answer.tell(not_waiting(bot.db.event_request_of(id)?)).await;
     };
