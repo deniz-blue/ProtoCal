@@ -207,6 +207,17 @@ fn with_parent(document: &Value, target: &str) -> Value {
 }
 
 #[test]
+fn a_parent_from_outside_is_named_on_one_line_no_longer_than_a_thread_name() {
+    let long_name = format!("Lituanicon\n\n37 {}", "x".repeat(200));
+    let parent = json!({ "v": "0.2", "id": CONVENTION, "name": { "en": long_name } });
+    let ParentLink::Outside { name: Some(name), .. } = ParentLink::outside("https://v.test".to_owned(), Some(&parent)) else {
+        panic!("the parent has a name");
+    };
+    assert!(name.starts_with("Lituanicon 37 x"), "{name}");
+    assert_eq!(name.chars().count(), 100);
+}
+
+#[test]
 fn the_post_names_the_parent_event_and_its_dates() {
     let parent = json!({
         "v": "0.2",

@@ -1,7 +1,8 @@
 use serde_json::Value;
 use twilight_model::id::{Id, marker::ChannelMarker};
 
-use super::{dates::event_dates_as_discord, document::event_name_of};
+use super::{dates::event_dates_as_discord, document::event_name_of, post::THREAD_NAME_MAX};
+use crate::text::cut_to_utf16_length;
 
 pub const RELATION_TYPE: &str = "directory.evnt.component.relation#0";
 const PARENT: &str = "parent";
@@ -14,7 +15,8 @@ pub enum ParentLink {
 
 impl ParentLink {
     pub fn outside(view_url: String, parent: Option<&Value>) -> Self {
-        Self::Outside { view_url, name: parent.map(event_name_of).filter(|name| !name.is_empty()) }
+        let name = parent.map(|parent| cut_to_utf16_length(&event_name_of(parent), THREAD_NAME_MAX).to_owned());
+        Self::Outside { view_url, name: name.filter(|name| !name.is_empty()) }
     }
 
     pub fn markdown(&self) -> String {

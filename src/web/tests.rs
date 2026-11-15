@@ -17,6 +17,7 @@ use crate::{
     config::test_links,
     db::Database,
     discord::fixtures::{GUILD, forum, guild, hidden_forum},
+    event::parent::RELATION_TYPE,
     records::{CalendarLink, EventForum, EventPost},
 };
 
@@ -184,4 +185,20 @@ fn config_form_keeps_only_single_values_per_forum() {
     assert_eq!(change.event_forum_ids, ["20".to_owned(), "21".to_owned()].into());
     assert_eq!(change.announce_role_id_of, [("20".to_owned(), "51".to_owned())].into());
     assert!(change.review_channel_id_of.is_empty());
+}
+
+#[tokio::test]
+async fn a_parent_here_must_be_another_event_in_this_server_that_its_forum_does_not_hide() {
+    let bot = seeded_bot();
+    let child = bot.db.event_of_thread(Id::new(1000)).unwrap().unwrap();
+    let problem = async |thread_id: u64| {
+        let target = format!("https://p.test/events/{thread_id}.evnt.json");
+        let relation = json!({ "$type": RELATION_TYPE, "type": "parent", "target": target });
+        let document = json!({ "v": "0.2", "id": child.document["id"], "name": { "und": "Bar meet" }, "components": [relation] });
+        bot.problem_with_new_parent(&child, &document).await.unwrap_or_default()
+    };
+    assert_eq!(problem(1001).await, "");
+    assert!(problem(1002).await.ends_with("is in a forum not everyone can see."));
+    assert!(problem(1000).await.ends_with("is this event."));
+    assert!(problem(999).await.ends_with("is not an event here."));
 }

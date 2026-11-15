@@ -52,7 +52,7 @@ pub fn event_place_of(document: &Value) -> Option<String> {
 }
 
 pub fn event_name_of(document: &Value) -> String {
-    text_of(document.get("name")).unwrap_or_default()
+    text_of(document.get("name")).unwrap_or_default().split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 fn field_and_subject_of_issue_path(path: &[PathSegment]) -> Option<(EventField, &'static str)> {

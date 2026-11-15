@@ -42,7 +42,7 @@ pub async fn save_edit_return(State(bot): State<Arc<Bot>>, body: Bytes) -> Answe
     let event_post = bot.db.event_of_thread(grant.thread_id)?;
     let thread = bot.channel(grant.thread_id).await.filter(CachedChannel::is_thread);
     let (Some(event_post), Some(thread)) = (event_post, thread) else {
-        return edit_answer(StatusCode::BAD_REQUEST, "That event is over or its post is gone.", None);
+        return edit_answer(StatusCode::BAD_REQUEST, "That event's post is gone.", None);
     };
     let thread_url = format!("https://discord.com/channels/{}/{}", thread.guild_id, thread.id);
     let thread_url = Some(thread_url.as_str());
@@ -58,7 +58,7 @@ pub async fn save_edit_return(State(bot): State<Arc<Bot>>, body: Bytes) -> Answe
     if let Err(problem) = validate_event_document(&event) {
         return edit_answer(StatusCode::BAD_REQUEST, &problem.message, thread_url);
     }
-    if let Some(problem) = bot.problem_with_new_parent(&event_post.document, &event).await {
+    if let Some(problem) = bot.problem_with_new_parent(&event_post, &event).await {
         return edit_answer(StatusCode::BAD_REQUEST, &problem, thread_url);
     }
     crate::bot::event_lifecycle::save_event_document(&bot, &thread, &event_post, event).await?;
