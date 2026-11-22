@@ -13,13 +13,6 @@ impl ReactionEmoji {
     pub fn key(&self) -> Option<String> {
         self.id.clone().or_else(|| self.name.clone())
     }
-
-    pub fn as_text(&self) -> String {
-        match &self.id {
-            Some(id) => format!("<:{}:{id}>", self.name.as_deref().unwrap_or("emoji")),
-            None => self.name.clone().unwrap_or_default(),
-        }
-    }
 }
 
 pub fn role_name_of_event(event_name: &str) -> String {
@@ -42,12 +35,6 @@ mod tests {
         assert_eq!(emoji(Some("1550491800844636291"), Some("hello")).key().as_deref(), Some("1550491800844636291"));
         assert_eq!(emoji(None, Some("👋")).key().as_deref(), Some("👋"));
         assert_eq!(emoji(None, None).key(), None);
-    }
-
-    #[test]
-    fn an_emoji_is_written_the_way_discord_shows_it_in_a_message() {
-        assert_eq!(emoji(Some("1550491800844636291"), Some("hello")).as_text(), "<:hello:1550491800844636291>");
-        assert_eq!(emoji(None, Some("👋")).as_text(), "👋");
     }
 
     #[test]

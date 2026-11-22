@@ -104,19 +104,14 @@ pub async fn start_event(bot: &Bot, thread: &CachedChannel, posted: Option<Event
         change_event_role(bot, thread, RoleChange::Add, attendee, role_id).await?;
     }
 
-    let announced: Vec<_> = forum.announce_role_id.into_iter().collect();
-    let mut lines: Vec<String> = announced.iter().map(|role| format!("<@&{role}>")).collect();
-    lines.push(format!("-# Role: <@&{role_id}>"));
-    lines.push(format!(
-        "-# React with {} on the first message if you are looking to attend, to get the role",
-        attend_emoji.as_text()
-    ));
-    let mentions = AllowedMentions { roles: announced, ..Default::default() };
-    bot.http
-        .create_message(thread.id)
-        .content(&lines.join("\n"))
-        .allowed_mentions(Some(&mentions))
-        .await?;
+    if let Some(announce_role_id) = forum.announce_role_id {
+        let mentions = AllowedMentions { roles: vec![announce_role_id], ..Default::default() };
+        bot.http
+            .create_message(thread.id)
+            .content(&format!("<@&{announce_role_id}>"))
+            .allowed_mentions(Some(&mentions))
+            .await?;
+    }
     Ok(EventStart::Started)
 }
 
