@@ -10,6 +10,7 @@ pub struct EventForum {
     pub guild_id: Id<GuildMarker>,
     pub announce_role_id: Option<Id<RoleMarker>>,
     pub review_channel_id: Option<Id<ChannelMarker>>,
+    pub link_id: String,
 }
 
 impl EventForum {
@@ -28,6 +29,7 @@ pub struct EventPost {
     pub organizers: Vec<Id<UserMarker>>,
     pub document: Value,
     pub updated_at: i64,
+    pub link_id: String,
 }
 
 #[derive(Clone, Debug, PartialEq)]

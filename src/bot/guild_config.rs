@@ -15,6 +15,7 @@ use crate::{
         cache::{CachedChannel, CachedGuild, CachedRole},
         permissions::guild_permissions,
     },
+    grants::random_link_id,
     records::EventForum,
 };
 
@@ -28,6 +29,7 @@ pub struct ForumConfig {
     pub has_default_reaction: bool,
     pub everyone_can_view: bool,
     pub everyone_can_post: bool,
+    pub link_id: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -73,6 +75,7 @@ impl Bot {
                 has_default_reaction: forum.default_reaction.is_some(),
                 everyone_can_view: everyone.contains(Permissions::VIEW_CHANNEL),
                 everyone_can_post: everyone.contains(Permissions::SEND_MESSAGES),
+                link_id: settings.map(|settings| settings.link_id.clone()),
             }
         });
         let mut deleted: Vec<&EventForum> = saved
@@ -89,6 +92,7 @@ impl Bot {
             has_default_reaction: false,
             everyone_can_view: false,
             everyone_can_post: false,
+            link_id: Some(settings.link_id.clone()),
         });
         Ok(configs.chain(deleted_configs).collect())
     }
@@ -133,6 +137,7 @@ impl Bot {
                 guild_id: guild.id,
                 announce_role_id: chosen(&change.announce_role_id_of, &key, &role_ids).and_then(|id| id.parse().ok()),
                 review_channel_id: chosen(&change.review_channel_id_of, &key, &review_channel_ids).and_then(|id| id.parse().ok()),
+                link_id: forum.link_id.unwrap_or_else(random_link_id),
             })?;
         }
         Ok(())

@@ -8,7 +8,7 @@ use super::checks::{
     matching, number_where, object, report, string, translations,
 };
 
-const COORDINATES_TYPE: &str = "directory.evnt.component.coordinates#0";
+pub const COORDINATES_TYPE: &str = "directory.evnt.component.coordinates#0";
 
 static HEX_COLOUR: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^#[0-9A-Fa-f]{6}$").expect("hex colour pattern"));

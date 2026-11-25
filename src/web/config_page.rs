@@ -91,10 +91,10 @@ fn review_row(forum: &ForumConfig, channels: &[CachedChannel], label_name: &str)
 }
 
 fn index_row(links: &Links, forum: &ForumConfig) -> String {
-    if !(forum.is_event_forum && forum.everyone_can_view) {
+    let Some(link_id) = forum.link_id.as_deref() else {
         return String::new();
-    }
-    let index_url = links.forum_index_url(forum.forum_id);
+    };
+    let index_url = links.forum_index_url(link_id);
     format!("\n\t\t\t<a class=\"row\" href=\"{}\">Open Evnt index</a>", escaped(&index_url))
 }
 

@@ -32,8 +32,9 @@ fn event(thread_id: u64, forum_id: u64, name: &str) -> EventPost {
         role_id: Id::new(70),
         attend_reaction: "👋".to_owned(),
         organizers: vec![Id::new(4)],
-        document: json!({ "v": "0.2", "id": format!("https://p.test/events/{thread_id}.evnt.json"), "name": { "und": name } }),
+        document: json!({ "v": "0.2", "id": format!("https://p.test/events/link-{thread_id}.evnt.json"), "name": { "und": name } }),
         updated_at: 1_800_000_000,
+        link_id: format!("link-{thread_id}"),
     }
 }
 
@@ -46,6 +47,7 @@ pub fn seeded_bot() -> Arc<Bot> {
             guild_id: Id::new(GUILD),
             announce_role_id: None,
             review_channel_id: None,
+            link_id: format!("forum-{forum_id}"),
         })
         .unwrap();
     }
@@ -79,7 +81,7 @@ pub fn header_of(response: &Response, name: header::HeaderName) -> &str {
 #[tokio::test]
 async fn event_document_is_served_with_an_etag_and_cors() {
     let bot = seeded_bot();
-    let response = get(&bot, "/events/1000.evnt.json").await;
+    let response = get(&bot, "/events/link-1000.evnt.json").await;
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(header_of(&response, header::CONTENT_TYPE), "application/vnd.evnt+json");
     assert_eq!(header_of(&response, header::CACHE_CONTROL), "no-cache");
@@ -89,7 +91,7 @@ async fn event_document_is_served_with_an_etag_and_cors() {
     let body: Value = serde_json::from_str(&body_of(response).await).unwrap();
     assert_eq!(body["name"]["und"], "Bar meet");
 
-    let request = Request::get("/events/1000.evnt.json")
+    let request = Request::get("/events/link-1000.evnt.json")
         .header(header::IF_NONE_MATCH, format!("\"other\", {etag}"))
         .body(Body::empty())
         .unwrap();
@@ -99,9 +101,9 @@ async fn event_document_is_served_with_an_etag_and_cors() {
 }
 
 #[tokio::test]
-async fn hidden_and_malformed_documents_are_not_found() {
+async fn ids_other_than_link_ids_are_not_found() {
     let bot = seeded_bot();
-    for path in ["/events/1002.evnt.json", "/events/9.evnt.json", "/events/x1.evnt.json", "/forums/21.json", "/nowhere"] {
+    for path in ["/events/1000.evnt.json", "/events/link-9.evnt.json", "/events/link%201000.evnt.json", "/forums/20.json", "/nowhere"] {
         let response = get(&bot, path).await;
         assert_eq!(response.status(), StatusCode::NOT_FOUND, "{path}");
         assert_eq!(body_of(response).await, "404 Not Found");
@@ -111,12 +113,20 @@ async fn hidden_and_malformed_documents_are_not_found() {
 #[tokio::test]
 async fn forum_index_lists_newest_first() {
     let bot = seeded_bot();
-    let response = get(&bot, "/forums/20.json").await;
+    let response = get(&bot, "/forums/forum-20.json").await;
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(header_of(&response, header::CONTENT_TYPE), "application/json; charset=utf-8");
     let index: Value = serde_json::from_str(&body_of(response).await).unwrap();
     let hrefs: Vec<&str> = index["items"].as_array().unwrap().iter().map(|item| item["href"].as_str().unwrap()).collect();
-    assert_eq!(hrefs, ["https://p.test/events/1001.evnt.json", "https://p.test/events/1000.evnt.json"]);
+    assert_eq!(hrefs, ["https://p.test/events/link-1001.evnt.json", "https://p.test/events/link-1000.evnt.json"]);
+}
+
+#[tokio::test]
+async fn a_forum_hidden_from_everyone_is_served_to_whoever_has_its_link() {
+    let bot = seeded_bot();
+    assert_eq!(get(&bot, "/events/link-1002.evnt.json").await.status(), StatusCode::OK);
+    let index: Value = serde_json::from_str(&body_of(get(&bot, "/forums/forum-21.json").await).await).unwrap();
+    assert_eq!(index["items"][0]["href"], "https://p.test/events/link-1002.evnt.json");
 }
 
 #[tokio::test]
@@ -192,7 +202,7 @@ async fn a_parent_here_must_be_another_event_in_this_server_that_its_forum_does_
     let bot = seeded_bot();
     let child = bot.db.event_of_thread(Id::new(1000)).unwrap().unwrap();
     let problem = async |thread_id: u64| {
-        let target = format!("https://p.test/events/{thread_id}.evnt.json");
+        let target = format!("https://p.test/events/link-{thread_id}.evnt.json");
         let relation = json!({ "$type": RELATION_TYPE, "type": "parent", "target": target });
         let document = json!({ "v": "0.2", "id": child.document["id"], "name": { "und": "Bar meet" }, "components": [relation] });
         bot.problem_with_new_parent(&child, &document).await.unwrap_or_default()

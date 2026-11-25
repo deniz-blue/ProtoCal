@@ -4,7 +4,10 @@ use std::collections::BTreeSet;
 use serde_json::Value;
 use twilight_http::request::channel::reaction::RequestReactionType;
 use twilight_model::{
-    channel::{ChannelType, message::AllowedMentions},
+    channel::{
+        ChannelType,
+        message::{AllowedMentions, MessageFlags},
+    },
     id::{
         Id,
         marker::{ChannelMarker, EmojiMarker, UserMarker},
@@ -14,6 +17,7 @@ use twilight_model::{
 use super::{
     Bot,
     access::OpenEventForum,
+    event_post::{edit_event_post, update_event_post_if_outdated},
     event_roles::{RoleChange, change_event_role, create_event_role},
 };
 use crate::{
@@ -22,17 +26,22 @@ use crate::{
         attend_reaction::ReactionEmoji,
         dates::event_role_has_expired,
         document::new_event_document,
-        post::{MESSAGE_MAX, event_post_buttons, event_post_content, thread_name_of},
+        post::thread_name_of,
     },
+    grants::random_link_id,
     records::{EventForum, EventPost},
     time::now_unix_seconds,
 };
 
-pub use super::event_lifecycle_edit::{rename_event_of_thread, save_event_document};
+pub use super::{
+    event_lifecycle_edit::{rename_event_of_thread, save_event_document},
+    event_post::{update_event_posts_of_organizer, update_outdated_event_posts},
+};
 
 pub struct EventAsPosted {
     pub organizers: Vec<Id<UserMarker>>,
     pub document: Value,
+    pub link_id: String,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -76,9 +85,13 @@ pub async fn start_event(bot: &Bot, thread: &CachedChannel, posted: Option<Event
             .await?;
         return Ok(EventStart::NoAttendReaction);
     };
-    let posted = posted.unwrap_or_else(|| EventAsPosted {
-        organizers: thread.owner_id.into_iter().collect(),
-        document: new_event_document(&bot.links.event_document_url(thread.id), &thread.name),
+    let posted = posted.unwrap_or_else(|| {
+        let link_id = random_link_id();
+        EventAsPosted {
+            organizers: thread.owner_id.into_iter().collect(),
+            document: new_event_document(&bot.links.event_document_url(&link_id), &thread.name),
+            link_id,
+        }
     });
     let role_id = create_event_role(bot, thread).await?;
     bot.db.save_event(&EventPost {
@@ -90,6 +103,7 @@ pub async fn start_event(bot: &Bot, thread: &CachedChannel, posted: Option<Event
         organizers: posted.organizers.clone(),
         document: posted.document,
         updated_at: now_unix_seconds(),
+        link_id: posted.link_id,
     })?;
     tracing::info!(thread = %thread.id, role = %role_id, "Event started");
 
@@ -154,29 +168,30 @@ pub async fn post_new_event(
     organizers: Vec<Id<UserMarker>>,
     document: &Value,
 ) -> anyhow::Result<Id<ChannelMarker>> {
-    let part_of = bot.part_of(document).await;
-    let content = event_post_content(document, part_of.as_ref(), &organizers, now_unix_seconds(), MESSAGE_MAX);
+    let attend_reaction = forum.default_reaction.as_ref().and_then(ReactionEmoji::key);
+    let message = bot
+        .event_post_message(forum.guild_id, document, &organizers, attend_reaction.as_deref(), now_unix_seconds())
+        .await;
+    let (components, attachments) = message.components_and_upload(&[]).await;
     let mentions = AllowedMentions::default();
     let posted = bot
         .http
         .create_forum_thread(forum.id, &thread_name_of(document))
         .message()
-        .content(&content)
+        .flags(MessageFlags::IS_COMPONENTS_V2)
+        .components(&components)
+        .attachments(&attachments)
         .allowed_mentions(Some(&mentions))
         .await?
         .model()
         .await?;
     let thread = CachedChannel::of(forum.guild_id, &posted.channel);
     bot.cache.insert_channel(thread.clone());
-    let viewable = bot.everyone_can_view_forum(forum.guild_id, forum.id).await;
-    let buttons = [event_post_buttons(&bot.links, thread.id, viewable)];
-    bot.http
-        .update_message(thread.id, posted.message.id)
-        .components(Some(&buttons))
-        .await?;
+    let link_id = random_link_id();
+    edit_event_post(bot, thread.id, &link_id, &message, &posted.message).await?;
     let mut document = document.clone();
-    document["id"] = Value::String(bot.links.event_document_url(thread.id));
-    match start_event(bot, &thread, Some(EventAsPosted { organizers, document })).await {
+    document["id"] = Value::String(bot.links.event_document_url(&link_id));
+    match start_event(bot, &thread, Some(EventAsPosted { organizers, document, link_id })).await {
         Ok(EventStart::Started) => Ok(thread.id),
         outcome => {
             bot.http.delete_channel(thread.id).await?;
@@ -218,6 +233,7 @@ pub async fn delete_expired_event_roles(bot: &Bot, now_unix_seconds: i64) -> any
         let role_exists = bot.cache.role(event.guild_id, event.role_id).is_some();
         if role_exists && event_role_has_expired(&event.document, now_unix_seconds) {
             delete_role_of_event(bot, &event, &format!("Event {} was a week ago", event.thread_id)).await;
+            update_event_post_if_outdated(bot, &event).await;
         }
     }
     Ok(())

@@ -2,14 +2,14 @@ use rusqlite::{OptionalExtension as _, Row, params};
 use serde_json::Value;
 use twilight_model::id::{
     Id,
-    marker::{ChannelMarker, RoleMarker},
+    marker::{ChannelMarker, GuildMarker, RoleMarker},
 };
 
 use super::{Database, json_of, parsed};
 use crate::records::EventPost;
 
 const COLUMNS: &str =
-    "thread_id, guild_id, forum_id, role_id, attend_reaction, organizers, document, updated_at";
+    "thread_id, guild_id, forum_id, role_id, attend_reaction, organizers, document, updated_at, link_id";
 
 fn event_of_row(row: &Row) -> rusqlite::Result<EventPost> {
     Ok(EventPost {
@@ -21,6 +21,7 @@ fn event_of_row(row: &Row) -> rusqlite::Result<EventPost> {
         organizers: json_of(row, 5)?,
         document: json_of(row, 6)?,
         updated_at: row.get(7)?,
+        link_id: row.get(8)?,
     })
 }
 
@@ -36,10 +37,29 @@ impl Database {
         })
     }
 
+    pub fn event_of_link_id(&self, link_id: &str) -> anyhow::Result<Option<EventPost>> {
+        self.with(|db| {
+            db.query_row(
+                &format!("SELECT {COLUMNS} FROM events WHERE link_id = ?1"),
+                [link_id],
+                event_of_row,
+            )
+            .optional()
+        })
+    }
+
     pub fn all_events(&self) -> anyhow::Result<Vec<EventPost>> {
         self.with(|db| {
             db.prepare(&format!("SELECT {COLUMNS} FROM events"))?
                 .query_map([], event_of_row)?
+                .collect()
+        })
+    }
+
+    pub fn events_of_guild(&self, guild_id: Id<GuildMarker>) -> anyhow::Result<Vec<EventPost>> {
+        self.with(|db| {
+            db.prepare(&format!("SELECT {COLUMNS} FROM events WHERE guild_id = ?1"))?
+                .query_map([guild_id.to_string()], event_of_row)?
                 .collect()
         })
     }
@@ -56,7 +76,7 @@ impl Database {
         let organizers = serde_json::to_string(&event.organizers)?;
         self.with(|db| {
             db.execute(
-                &format!("INSERT INTO events ({COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)"),
+                &format!("INSERT INTO events ({COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)"),
                 params![
                     event.thread_id.to_string(),
                     event.guild_id.to_string(),
@@ -66,6 +86,7 @@ impl Database {
                     organizers,
                     event.document.to_string(),
                     event.updated_at,
+                    event.link_id,
                 ],
             )
             .map(drop)

@@ -30,7 +30,7 @@ While an event runs:
 - `/event new` opens a form with Name, Date, Place and Description. Date takes a start and an optional end, written loosely: `12 October 18:00`, `12.10 18:00 - 22:00`, `2026 10 22`, `5-7 December`, `saturday 19:00`, `2026-12` for a month, with month and weekday names in English, Lithuanian or Turkish. A year left out is the next one that puts the date ahead, and an end time earlier than the start is on the next day. Times are in Europe/Vilnius unless the value ends in another zone in brackets, such as `2026-12-05 18:00 [Europe/London]`. A form that does not read comes back with the reason and a Fix it button that reopens it with the same values.
 - `/event register`, run inside a post someone made by hand, makes that post an event.
 - `/event send-new-button` posts a New event button in the channel it is run in. Pressing it does what `/event new` does, with the forum already picked if one was given.
-- An event the bot posted has an Edit button, and a View button when everyone can see the forum. Edit offers Edit on Discord (the same form) and Edit via App (the editor on eventsl.ink). Organizers and moderators can edit.
+- An event the bot posted has a View button and an Edit button. Edit offers Edit on Discord (the same form) and Edit via App (the editor on eventsl.ink). Organizers and moderators can edit.
 - An event can be part of another, such as a meetup at a convention. That is set in Edit via App and saved as a `parent` relation, and the post shows the other event's name and dates. The other event's link is fetched when it is first saved, and a save whose link is not an Open Evnt event is refused.
 
 ### Review
@@ -60,8 +60,8 @@ A post made directly in a screened forum by someone without Manage Threads is no
 The HTTP server serves these paths:
 
 - `/`: the homepage, with the invite link.
-- `/events/<thread id>.evnt.json`: one event. Only when everyone can view its forum.
-- `/forums/<forum id>.json`: the events of an event forum, as an index. Same rule.
+- `/events/<link id>.evnt.json`: one event. The link id is random, so only people given the link can open it: it is behind the post's View button.
+- `/forums/<link id>.json`: the events of an event forum, as an index, also behind a random link id. The settings page shows the link.
 - `/calendars/<token>.json` and `/calendars/<token>/events/<thread id>.evnt.json`: the `/mycalendar` index and the events in it.
 - `/config/<token>`, `/edit/<token>` and `/edit/return`: the pages behind the links the bot sends.
 - `/fonts/lexend.woff2`: the font the pages use.
@@ -82,6 +82,7 @@ cargo test
 
 - The bot does not publish commands when it starts. Run `publish` after changing a command's name, options or description.
 - The bot asks for the Message Content intent, to tell a message that is only a role ping from one with text. Switch it on in the Developer Portal under Bot, Privileged Gateway Intents; Discord refuses the gateway connection without it.
+- The bot asks for the Server Members intent. Switch it on in the same place; without it Discord refuses the gateway connection with close code 4014.
 - Without `DISCORD_BOT_TOKEN`, the process logs an error and serves only the web pages.
 - The web server listens on `127.0.0.1:8660` by default. Put a TLS reverse proxy in front of it and set `PROTOCAL_PUBLIC_URL` to the public address, since the links and feed URLs are built from it.
 
@@ -102,4 +103,4 @@ Settings come from environment variables. A `.env` file is read too, and a varia
 
 The database is SQLite at `DATABASE_URL`, and its folder is created at start. The schema is the one the TypeScript version used. On open, the bot renames `meets`, `meet_forums` and `meet_requests` to `events`, `event_forums` and `event_requests` when the new names are not there yet, and adds `event_forums.review_channel_id` if it is missing. Buttons posted under the old `meet-` ids still work.
 
-The web pages use Lexend 1.007, built into the binary from `assets/fonts/Lexend.woff2` and served at `/fonts/lexend.woff2`. It is under the SIL Open Font License, in `assets/fonts/OFL.txt`.
+The web pages use Lexend 1.007, built into the binary from `assets/fonts/Lexend.woff2` and served at `/fonts/lexend.woff2`. It is under the SIL Open Font License, in `assets/fonts/OFL.txt`. The `+N` on organizer pictures uses Lexend SemiBold from `assets/fonts/Lexend-SemiBold.ttf`, under the same license.

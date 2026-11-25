@@ -230,7 +230,7 @@ fn the_post_names_the_parent_event_and_its_dates() {
     let line = part_of.line();
     assert!(line.starts_with("🧩 **Part of:** [Lituanicon 37](<https://eventsl.ink/event?url=x>) · "), "{line}");
     let document = with_parent(&document_of(Changed::default()), CONVENTION);
-    assert!(event_post_content(&document, Some(&part_of), &[], 0, 2000).contains(&line));
+    assert!(event_post_content(&document, Some(&part_of), &[], None, 0, 2000).contains(&line));
 
     let unreachable = PartOf::of_parent(ParentLink::outside(view_url, None), None);
     assert_eq!(unreachable.line(), "🧩 **Part of:** [another event](<https://eventsl.ink/event?url=x>)");

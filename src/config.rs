@@ -1,7 +1,6 @@
 use std::{env, path::PathBuf};
 
 use anyhow::Context as _;
-use twilight_model::id::{Id, marker::ChannelMarker};
 use url::Url;
 
 #[derive(Clone, Debug)]
@@ -61,17 +60,17 @@ pub fn with_query(address: &str, pairs: &[(&str, &str)]) -> String {
 }
 
 impl Links {
-    pub fn event_document_url(&self, thread_id: impl std::fmt::Display) -> String {
-        format!("{}/events/{thread_id}.evnt.json", self.public_url)
+    pub fn event_document_url(&self, link_id: &str) -> String {
+        format!("{}/events/{link_id}.evnt.json", self.public_url)
     }
 
-    pub fn thread_of_event_document_url(&self, document_url: &str) -> Option<Id<ChannelMarker>> {
+    pub fn link_id_of_event_document_url<'a>(&self, document_url: &'a str) -> Option<&'a str> {
         let file = document_url.strip_prefix(&self.public_url)?.strip_prefix("/events/")?;
-        file.strip_suffix(".evnt.json")?.parse().ok()
+        file.strip_suffix(".evnt.json")
     }
 
-    pub fn forum_index_url(&self, forum_id: impl std::fmt::Display) -> String {
-        format!("{}/forums/{forum_id}.json", self.public_url)
+    pub fn forum_index_url(&self, link_id: &str) -> String {
+        format!("{}/forums/{link_id}.json", self.public_url)
     }
 
     pub fn calendar_index_url(&self, token: &str) -> String {
@@ -98,8 +97,8 @@ impl Links {
         with_query(&self.index_viewer_url, &[("url", index_url)])
     }
 
-    pub fn event_view_url(&self, thread_id: impl std::fmt::Display) -> String {
-        self.document_view_url(&self.event_document_url(thread_id))
+    pub fn event_view_url(&self, link_id: &str) -> String {
+        self.document_view_url(&self.event_document_url(link_id))
     }
 
     pub fn document_view_url(&self, document_url: &str) -> String {

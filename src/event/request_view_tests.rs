@@ -6,12 +6,12 @@ use twilight_model::{
 };
 
 use super::request_view::{
-    EventRequestAction, EventRequestOutcome, MessageView, TEXT_DISPLAYS_MAX, changes_asked_message,
+    EventRequestAction, EventRequestOutcome, MessageView, changes_asked_message,
     event_request_action_of, event_request_card, event_request_custom_id, event_request_host_view, host_requests_view, is_host_requests_list,
 };
 use super::post::MESSAGE_MAX;
 use crate::{
-    components::{COMPONENTS_MAX, button, button_labels, component_count, row, text_displays},
+    components::{COMPONENTS_MAX, TEXT_DISPLAYS_MAX, button, button_labels, component_count, row, text_displays},
     records::{EventRequest, MessageAt, RequestState},
     text::utf16_length,
 };

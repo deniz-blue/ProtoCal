@@ -3,7 +3,10 @@ use serde_json::json;
 use twilight_model::id::Id;
 
 use super::{Database, RequestEditor, RequestMatch, rename_tables_to_event_names};
-use crate::records::{CalendarLink, EventForum, EventPost, EventRequest, MessageAt, RequestState};
+use crate::{
+    event::parent::RELATION_TYPE,
+    records::{CalendarLink, EventForum, EventPost, EventRequest, MessageAt, RequestState},
+};
 
 const TABLES_BEFORE_THE_EVENT_RENAME: &str = "
     CREATE TABLE `meet_forums` (
@@ -49,9 +52,23 @@ fn event() -> EventPost {
         role_id: Id::new(3),
         attend_reaction: "👋".to_owned(),
         organizers: vec![Id::new(4)],
-        document: json!({ "v": "0.2", "id": "https://p.test/events/10.evnt.json", "name": { "und": "Bar meet" } }),
+        document: json!({ "v": "0.2", "id": "https://p.test/events/link-10.evnt.json", "name": { "und": "Bar meet" } }),
         updated_at: 1_800_000_000,
+        link_id: "link-10".to_owned(),
     }
+}
+
+fn document_from_before_link_ids(thread_id: u64, parent_thread_id: Option<u64>) -> String {
+    let parents = parent_thread_id.map(|parent| {
+        json!({ "$type": RELATION_TYPE, "type": "parent", "target": format!("https://p.test/events/{parent}.evnt.json") })
+    });
+    json!({
+        "v": "0.2",
+        "id": format!("https://p.test/events/{thread_id}.evnt.json"),
+        "name": { "und": "Bar meet" },
+        "components": parents.into_iter().collect::<Vec<_>>(),
+    })
+    .to_string()
 }
 
 fn request() -> EventRequest {
@@ -93,17 +110,49 @@ fn rows_from_before_the_event_rename_are_found_under_the_new_names() {
     rename_tables_to_event_names(&connection).unwrap();
     rename_tables_to_event_names(&connection).unwrap();
     let db = Database::of_connection(connection).unwrap();
-    assert_eq!(db.event_of_thread(Id::new(10)).unwrap(), Some(event()));
+    let event_found = db.event_of_thread(Id::new(10)).unwrap().unwrap();
+    assert_eq!(event_found, EventPost { link_id: event_found.link_id.clone(), ..event() });
+    let forum_found = db.event_forum_of(Id::new(2)).unwrap().unwrap();
     assert_eq!(
-        db.event_forum_of(Id::new(2)).unwrap(),
-        Some(EventForum {
+        forum_found,
+        EventForum {
             forum_id: Id::new(2),
             guild_id: Id::new(1),
             announce_role_id: Some(Id::new(9)),
             review_channel_id: Some(Id::new(8)),
-        })
+            link_id: forum_found.link_id.clone(),
+        }
     );
     assert_eq!(db.event_request_of("5f0c6a52").unwrap(), Some(request()));
+}
+
+#[test]
+fn rows_from_before_link_ids_get_random_ones_and_links_to_their_events_follow() {
+    let connection = Connection::open_in_memory().unwrap();
+    connection.execute_batch(TABLES_BEFORE_THE_EVENT_RENAME).unwrap();
+    let insert_event = "INSERT INTO meets VALUES (?1, '1', '2', '3', '👋', '[]', ?2, 1800000000)";
+    connection.execute(insert_event, ["10", &document_from_before_link_ids(10, None)]).unwrap();
+    connection.execute(insert_event, ["11", &document_from_before_link_ids(11, Some(10))]).unwrap();
+    connection.execute("INSERT INTO meet_forums VALUES ('2', '1', NULL, NULL)", []).unwrap();
+    connection.execute("INSERT INTO meet_forums VALUES ('3', '1', NULL, NULL)", []).unwrap();
+    connection
+        .execute(
+            "INSERT INTO meet_requests VALUES ('r', '1', '2', '3', ?1, 'waiting', NULL, NULL, 0, 0, '4', '5', NULL, NULL, 1)",
+            [document_from_before_link_ids(12, Some(10))],
+        )
+        .unwrap();
+    let db = Database::of_connection(connection).unwrap();
+    let parent = db.event_of_thread(Id::new(10)).unwrap().unwrap();
+    let child = db.event_of_thread(Id::new(11)).unwrap().unwrap();
+    let forums = db.event_forums_of_guild(Id::new(1)).unwrap();
+    let link_ids = [&parent.link_id, &child.link_id, &forums[0].link_id, &forums[1].link_id];
+    assert!(link_ids.iter().all(|link_id| link_id.len() == 12));
+    assert_eq!(link_ids.into_iter().collect::<std::collections::HashSet<_>>().len(), 4);
+    let parent_url = format!("https://p.test/events/{}.evnt.json", parent.link_id);
+    assert_eq!(parent.document["id"], parent_url);
+    assert_eq!(child.document["components"][0]["target"], parent_url);
+    assert_eq!(db.event_request_of("r").unwrap().unwrap().document["components"][0]["target"], parent_url);
+    assert_eq!(db.event_of_link_id(&parent.link_id).unwrap(), Some(parent));
 }
 
 #[test]
@@ -117,6 +166,8 @@ fn an_event_is_stored_as_the_typescript_bot_stored_it() {
     assert_eq!(organizers, r#"["4"]"#);
     db.replace_event_role(Id::new(10), Id::new(30)).unwrap();
     assert_eq!(db.events_of_forum(Id::new(2)).unwrap()[0].role_id, Id::new(30));
+    assert_eq!(db.events_of_guild(event().guild_id).unwrap().len(), 1);
+    assert!(db.events_of_guild(Id::new(999)).unwrap().is_empty());
     db.forget_event(Id::new(10)).unwrap();
     assert!(db.all_events().unwrap().is_empty());
 }
@@ -195,7 +246,7 @@ fn a_calendar_link_is_found_by_person_and_by_token_and_replaced_in_place() {
 fn an_attendee_is_listed_until_removed_and_forgotten_with_the_event() {
     let db = Database::in_memory();
     db.save_event(&event()).unwrap();
-    let other = EventPost { thread_id: Id::new(11), ..event() };
+    let other = EventPost { thread_id: Id::new(11), link_id: "link-11".to_owned(), ..event() };
     db.save_event(&other).unwrap();
     db.add_event_attendee(event().thread_id, Id::new(4)).unwrap();
     db.add_event_attendee(event().thread_id, Id::new(4)).unwrap();

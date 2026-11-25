@@ -29,6 +29,10 @@ fn is_token(text: &str) -> bool {
     !text.is_empty() && text.bytes().all(|byte| byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'-')
 }
 
+fn token_of_file<'a>(file: &'a str, extension: &str) -> Option<&'a str> {
+    file.strip_suffix(extension).filter(|token| is_token(token))
+}
+
 fn answer_index(headers: &HeaderMap, events: &[EventPost], href_of: impl Fn(&EventPost) -> String) -> Response {
     let listed = events
         .iter()
@@ -42,34 +46,28 @@ fn answer_event_document(headers: &HeaderMap, event: &EventPost) -> Response {
 }
 
 pub async fn event_document(State(bot): State<Arc<Bot>>, Path(file): Path<String>, headers: HeaderMap) -> Answered {
-    let Some(thread_id) = id_of_file(&file, ".evnt.json") else {
+    let Some(link_id) = token_of_file(&file, ".evnt.json") else {
         return Ok(not_found());
     };
-    let Some(event) = bot.db.event_of_thread(thread_id)? else {
-        return Ok(not_found());
-    };
-    if !bot.everyone_can_view_forum(event.guild_id, event.forum_id).await {
-        return Ok(not_found());
-    }
-    Ok(answer_event_document(&headers, &event))
+    Ok(match bot.db.event_of_link_id(link_id)? {
+        Some(event) => answer_event_document(&headers, &event),
+        None => not_found(),
+    })
 }
 
 pub async fn forum_index(State(bot): State<Arc<Bot>>, Path(file): Path<String>, headers: HeaderMap) -> Answered {
-    let Some(forum_id) = id_of_file(&file, ".json") else {
+    let Some(link_id) = token_of_file(&file, ".json") else {
         return Ok(not_found());
     };
-    let Some(forum) = bot.db.event_forum_of(forum_id)? else {
+    let Some(forum) = bot.db.event_forum_of_link_id(link_id)? else {
         return Ok(not_found());
     };
-    if !bot.everyone_can_view_forum(forum.guild_id, forum.forum_id).await {
-        return Ok(not_found());
-    }
     let events = bot.db.events_of_forum(forum.forum_id)?;
-    Ok(answer_index(&headers, &events, |event| bot.links.event_document_url(event.thread_id)))
+    Ok(answer_index(&headers, &events, |event| bot.links.event_document_url(&event.link_id)))
 }
 
 pub async fn calendar_index(State(bot): State<Arc<Bot>>, Path(file): Path<String>, headers: HeaderMap) -> Answered {
-    let Some(token) = file.strip_suffix(".json").filter(|token| is_token(token)) else {
+    let Some(token) = token_of_file(&file, ".json") else {
         return Ok(not_found());
     };
     let Some(link) = bot.db.calendar_link_of_token(token)? else {

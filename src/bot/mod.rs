@@ -8,6 +8,7 @@ mod event_form_modal;
 mod event_form_submit;
 pub mod event_lifecycle;
 mod event_lifecycle_edit;
+mod event_post;
 mod event_request;
 mod event_request_messages;
 mod event_request_moderation;
@@ -92,7 +93,7 @@ impl Bot {
     }
 
     pub fn intents() -> Intents {
-        Intents::GUILDS | Intents::GUILD_MESSAGE_REACTIONS | Intents::GUILD_MESSAGES | Intents::MESSAGE_CONTENT
+        Intents::GUILDS | Intents::GUILD_MEMBERS | Intents::GUILD_MESSAGE_REACTIONS | Intents::GUILD_MESSAGES | Intents::MESSAGE_CONTENT
     }
 
     pub async fn channel(&self, channel_id: Id<ChannelMarker>) -> Option<CachedChannel> {
@@ -150,6 +151,7 @@ impl Bot {
                 }
                 event_lifecycle::start_event_of_new_post(self, &thread).await
             }
+            Event::MemberUpdate(member) => event_lifecycle::update_event_posts_of_organizer(self, member.guild_id, member.user.id).await,
             Event::ThreadDelete(thread) => event_lifecycle::delete_event(self, thread.id).await,
             Event::ThreadUpdate(thread) => {
                 let Some(after) = self.cache.channel(thread.id) else {

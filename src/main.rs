@@ -8,6 +8,7 @@ mod gateway;
 mod grants;
 mod open_evnt;
 mod records;
+mod rgba_image;
 mod text;
 mod time;
 mod web;

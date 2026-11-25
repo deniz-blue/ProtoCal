@@ -13,8 +13,9 @@ fn event(thread_id: u64, name: &str, updated_at: i64) -> EventPost {
         role_id: Id::new(3),
         attend_reaction: "👍".to_owned(),
         organizers: vec![],
-        document: json!({ "v": "0.2", "id": format!("https://p.test/events/{thread_id}.evnt.json"), "name": { "und": name } }),
+        document: json!({ "v": "0.2", "id": format!("https://p.test/events/link-{thread_id}.evnt.json"), "name": { "und": name } }),
         updated_at,
+        link_id: format!("link-{thread_id}"),
     }
 }
 

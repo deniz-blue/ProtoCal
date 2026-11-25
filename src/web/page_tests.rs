@@ -24,6 +24,7 @@ fn forum_config(forum_id: u64, name: Option<&str>) -> ForumConfig {
         has_default_reaction: true,
         everyone_can_view: true,
         everyone_can_post: false,
+        link_id: Some(format!("forum-{forum_id}")),
     }
 }
 
@@ -46,6 +47,7 @@ fn config_page_matches_its_reference() {
         },
         ForumConfig {
             is_event_forum: false,
+            link_id: None,
             everyone_can_view: false,
             has_default_reaction: false,
             ..forum_config(21, Some("hidden <one>"))

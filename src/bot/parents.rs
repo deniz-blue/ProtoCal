@@ -5,7 +5,6 @@ use std::{
 };
 
 use serde_json::Value;
-use twilight_model::id::{Id, marker::ChannelMarker};
 
 use super::Bot;
 use crate::{
@@ -56,10 +55,10 @@ impl Bot {
 
     pub async fn part_of(&self, document: &Value) -> Option<PartOf> {
         let url = parent_url_of(document)?;
-        if let Some(thread_id) = self.links.thread_of_event_document_url(&url)
-            && let Ok(Some(parent)) = self.db.event_of_thread(thread_id)
+        if let Some(link_id) = self.links.link_id_of_event_document_url(&url)
+            && let Ok(Some(parent)) = self.db.event_of_link_id(link_id)
         {
-            return Some(PartOf::of_parent(ParentLink::Thread(thread_id), Some(&parent.document)));
+            return Some(PartOf::of_parent(ParentLink::Thread(parent.thread_id), Some(&parent.document)));
         }
         let parent = self.outside_parent(&url).await;
         let link = ParentLink::outside(self.links.document_view_url(&url), parent.as_ref());
@@ -71,15 +70,15 @@ impl Bot {
         if parent_url_of(&child.document).as_deref() == Some(url.as_str()) {
             return None;
         }
-        let problem = match self.links.thread_of_event_document_url(&url) {
-            Some(thread_id) => self.problem_with_parent_here(child, thread_id).await?.to_owned(),
+        let problem = match self.links.link_id_of_event_document_url(&url) {
+            Some(link_id) => self.problem_with_parent_here(child, link_id).await?.to_owned(),
             None => self.fetch_parent(&url).await.err()?.to_string(),
         };
         Some(format!("Part of: `{url}` {problem}."))
     }
 
-    async fn problem_with_parent_here(&self, child: &EventPost, thread_id: Id<ChannelMarker>) -> Option<&'static str> {
-        let Ok(Some(parent)) = self.db.event_of_thread(thread_id) else {
+    async fn problem_with_parent_here(&self, child: &EventPost, link_id: &str) -> Option<&'static str> {
+        let Ok(Some(parent)) = self.db.event_of_link_id(link_id) else {
             return Some("is not an event here");
         };
         if parent.thread_id == child.thread_id {

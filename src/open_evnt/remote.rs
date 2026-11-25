@@ -26,6 +26,7 @@ use super::{Issue, PathSegment, validate};
 
 const TIMEOUT: Duration = Duration::from_secs(5);
 const MAX_BYTES: usize = 256 * 1024;
+const IMAGE_MAX_BYTES: usize = 1024 * 1024;
 const MAX_REDIRECTS: usize = 3;
 const USER_AGENT: &str = "ProtoCal (https://protocal.tsx.lt)";
 
@@ -163,8 +164,8 @@ fn unreachable(error: impl fmt::Display) -> FetchProblem {
     FetchProblem::Unreachable(error.to_string())
 }
 
-async fn body_of(response: hyper::Response<hyper::body::Incoming>) -> Result<Bytes, FetchProblem> {
-    let collected = tokio::time::timeout(TIMEOUT, Limited::new(response.into_body(), MAX_BYTES).collect())
+async fn body_of(response: hyper::Response<hyper::body::Incoming>, max_bytes: usize) -> Result<Bytes, FetchProblem> {
+    let collected = tokio::time::timeout(TIMEOUT, Limited::new(response.into_body(), max_bytes).collect())
         .await
         .map_err(|_| unreachable("it took too long"))?;
     collected.map(|body| body.to_bytes()).map_err(|error| {
@@ -195,7 +196,7 @@ pub async fn fetch_event_document(address: &str) -> Result<Value, FetchProblem> 
         if !status.is_success() {
             return Err(FetchProblem::Status(status.as_u16()));
         }
-        let body = body_of(response).await?;
+        let body = body_of(response, MAX_BYTES).await?;
         let document: Value = serde_json::from_slice(&body).map_err(|_| FetchProblem::NotJson)?;
         return match validate(&document) {
             Ok(()) => Ok(document),
@@ -203,6 +204,21 @@ pub async fn fetch_event_document(address: &str) -> Result<Value, FetchProblem> 
         };
     }
     Err(FetchProblem::TooManyRedirects)
+}
+
+pub async fn fetch_image(address: &str) -> Result<Bytes, FetchProblem> {
+    let request = Request::get(https_url_of(address)?.as_str())
+        .header(header::USER_AGENT, USER_AGENT)
+        .body(Empty::new())
+        .map_err(unreachable)?;
+    let response = tokio::time::timeout(TIMEOUT, https_client().request(request))
+        .await
+        .map_err(|_| unreachable("it took too long"))?
+        .map_err(unreachable)?;
+    if !response.status().is_success() {
+        return Err(FetchProblem::Status(response.status().as_u16()));
+    }
+    body_of(response, IMAGE_MAX_BYTES).await
 }
 
 #[cfg(test)]

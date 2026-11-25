@@ -9,6 +9,7 @@ mod partial_date_tests;
 use serde_json::Value;
 
 pub use checks::{Issue, PathSegment};
+pub use component_shape::COORDINATES_TYPE;
 pub use partial_date::{PartialDate, Precision};
 
 pub fn validate(document: &Value) -> Result<(), Vec<Issue>> {

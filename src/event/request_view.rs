@@ -16,7 +16,7 @@ use super::{
     post::{MESSAGE_MAX, EventFormTarget, event_post_content},
 };
 use crate::{
-    components::{COMPONENTS_MAX, button, component_count, container, row, text_display, text_displays},
+    components::{COMPONENTS_MAX, TEXT_DISPLAYS_MAX, button, component_count, container, row, text_display, text_displays},
     records::{EventRequest, RequestState},
     text::utf16_length,
 };
@@ -28,7 +28,6 @@ const CLOSED_DMS: &str = "-# Your DMs are closed, so this is the only place you 
 const HOST_REQUESTS_HEAD: &str = "Your DMs were closed when you sent these, so they wait here:";
 const NO_HOST_REQUESTS: &str = "Nothing of yours is waiting.";
 const HOST_REQUESTS_HEAD_ID: i32 = 9001;
-pub const TEXT_DISPLAYS_MAX: usize = 4000;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum EventRequestAction {
@@ -98,7 +97,7 @@ fn with_preview(request: &EventRequest, part_of: Option<&PartOf>, head: &[String
     let lines: Vec<&str> = head.iter().map(String::as_str).filter(|line| !line.is_empty()).collect();
     let top = lines.join("\n");
     let room = MESSAGE_MAX.min(TEXT_DISPLAYS_MAX.saturating_sub(utf16_length(&top)));
-    let preview = event_post_content(&request.document, part_of, &[request.host_id], request.updated_at, room);
+    let preview = event_post_content(&request.document, part_of, &[request.host_id], None, request.updated_at, room);
     let mut components = vec![container(vec![text_display(preview)])];
     if !top.is_empty() {
         components.push(text_display(top));

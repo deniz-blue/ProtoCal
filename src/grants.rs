@@ -9,10 +9,18 @@ use rand::RngCore as _;
 
 const GRANT_LIFETIME: Duration = Duration::from_mins(60);
 
-pub fn random_token() -> String {
-    let mut bytes = [0u8; 24];
+fn random_url_safe_text(byte_count: usize) -> String {
+    let mut bytes = vec![0u8; byte_count];
     rand::rng().fill_bytes(&mut bytes);
     URL_SAFE_NO_PAD.encode(bytes)
+}
+
+pub fn random_token() -> String {
+    random_url_safe_text(24)
+}
+
+pub fn random_link_id() -> String {
+    random_url_safe_text(9)
 }
 
 pub struct GrantStore<T> {

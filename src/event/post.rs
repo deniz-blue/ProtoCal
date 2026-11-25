@@ -11,20 +11,22 @@ use twilight_model::{
 };
 
 use super::{
+    attend_reaction::emoji_text_of_reaction_key,
     change_notice::event_status_as_discord,
     dates::event_dates_as_discord,
-    document::{event_description_of, event_name_of, event_place_of},
+    document::{event_coordinates_of, event_description_of, event_name_of, event_place_of},
     parent::PartOf,
 };
 use crate::{
     components::{button, link_button, row},
-    config::Links,
+    config::{Links, with_query},
     text::{cut_to_utf16_length, utf16_length},
 };
 
 // Discord limits: a message is 2000 characters, a thread name 100.
 pub const MESSAGE_MAX: usize = 2000;
 pub const THREAD_NAME_MAX: usize = 100;
+const MAP_SEARCH_URL: &str = "https://www.google.com/maps/search/?api=1";
 
 // Buttons already posted to Discord carry these ids.
 pub const EVENT_FORM_BUTTON: &str = "meet-form";
@@ -113,44 +115,90 @@ pub fn thread_name_of(document: &Value) -> String {
     cut_to_utf16_length(&event_name_of(document), THREAD_NAME_MAX).to_owned()
 }
 
-pub fn event_post_content(
+fn place_as_discord(document: &Value) -> Option<String> {
+    let place = event_place_of(document).filter(|place| !place.is_empty())?;
+    let query = event_coordinates_of(document).map_or_else(|| place.clone(), |(latitude, longitude)| format!("{latitude},{longitude}"));
+    let map_url = with_query(MAP_SEARCH_URL, &[("query", &query)]);
+    Some(format!("[{}](<{map_url}>)", place.replace(['[', ']'], "")))
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct EventPostText {
+    pub head: String,
+    pub description: Option<String>,
+    pub foot: String,
+}
+
+impl EventPostText {
+    pub fn description_within(&self, longest: usize) -> Option<String> {
+        let description = self.description.as_ref()?;
+        if utf16_length(description) <= longest {
+            return Some(description.clone());
+        }
+        Some(format!("{}…", cut_to_utf16_length(description, longest.saturating_sub(1))))
+    }
+
+    pub fn as_content(&self, max_length: usize) -> String {
+        let room = max_length.saturating_sub(utf16_length(&self.head) + utf16_length(&self.foot) + 4);
+        match self.description_within(room) {
+            Some(description) => format!("{}\n\n{description}\n\n{}", self.head, self.foot),
+            None => format!("{}\n\n{}", self.head, self.foot),
+        }
+    }
+}
+
+pub fn event_post_text(
     document: &Value,
     part_of: Option<&PartOf>,
     organizers: &[Id<UserMarker>],
+    attend_reaction: Option<&str>,
     updated_at_unix_seconds: i64,
-    max_length: usize,
-) -> String {
+) -> EventPostText {
     let mentions: Vec<String> = organizers.iter().map(|id| format!("<@{id}>")).collect();
     let facts: Vec<String> = [
         event_status_as_discord(document).map(str::to_owned),
         part_of.map(PartOf::line),
-        event_dates_as_discord(document, true).map(|dates| format!("📆 **Date & Time:** {dates}")),
-        event_place_of(document)
-            .filter(|place| !place.is_empty())
-            .map(|place| format!("📍 **Location:** {place}")),
         Some(format!("🪧 **Organized by** {}", mentions.join(" "))),
+        event_dates_as_discord(document, true).map(|dates| format!("📆 **Date & Time:** {dates}")),
+        place_as_discord(document).map(|place| format!("📍 **Location:** {place}")),
     ]
     .into_iter()
     .flatten()
     .collect();
-    let head = format!("## {}\n\n{}", event_name_of(document), facts.join("\n"));
-    let foot = format!("-# Last updated at <t:{updated_at_unix_seconds}:R>");
-    let Some(description) = event_description_of(document).filter(|text| !text.is_empty()) else {
-        return format!("{head}\n\n{foot}");
+    let updated = format!("-# Last updated at <t:{updated_at_unix_seconds}:R>");
+    let foot = match attend_reaction {
+        Some(key) => format!("{updated}\n-# React {} to get the role", emoji_text_of_reaction_key(key)),
+        None => updated,
     };
-    let room = max_length.saturating_sub(utf16_length(&head) + utf16_length(&foot) + 4);
-    let shown = if utf16_length(&description) > room {
-        format!("{}…", cut_to_utf16_length(&description, room.saturating_sub(1)))
-    } else {
-        description
-    };
-    format!("{head}\n\n{shown}\n\n{foot}")
+    EventPostText {
+        head: format!("## {}\n\n{}", event_name_of(document), facts.join("\n")),
+        description: event_description_of(document).filter(|text| !text.is_empty()),
+        foot,
+    }
 }
 
-pub fn event_post_buttons(links: &Links, thread_id: Id<ChannelMarker>, viewable: bool) -> Component {
+pub fn event_post_content(
+    document: &Value,
+    part_of: Option<&PartOf>,
+    organizers: &[Id<UserMarker>],
+    attend_reaction: Option<&str>,
+    updated_at_unix_seconds: i64,
+    max_length: usize,
+) -> String {
+    event_post_text(document, part_of, organizers, attend_reaction, updated_at_unix_seconds).as_content(max_length)
+}
+
+pub fn event_post_buttons(links: &Links, thread_id: Id<ChannelMarker>, link_id: &str) -> Component {
     let edit = button(format!("{EVENT_EDIT_BUTTON}:{thread_id}"), "Edit", ButtonStyle::Secondary);
-    let view = link_button("View", links.event_view_url(thread_id));
-    row(if viewable { vec![view, edit] } else { vec![edit] })
+    row(vec![link_button("View", links.event_view_url(link_id)), edit])
+}
+
+pub fn has_link_button(components: &[Component], url: &str) -> bool {
+    components.iter().any(|component| match component {
+        Component::ActionRow(row) => has_link_button(&row.components, url),
+        Component::Button(Button { url: Some(button_url), .. }) => button_url == url,
+        _ => false,
+    })
 }
 
 pub fn event_edit_buttons(thread_id: Id<ChannelMarker>, edit_url: String) -> Component {
@@ -168,8 +216,31 @@ pub fn event_edit_buttons(thread_id: Id<ChannelMarker>, edit_url: String) -> Com
 mod tests {
     use twilight_model::{channel::message::EmojiReactionType, id::Id};
 
-    use super::{EventFormTarget, NewEventButton};
-    use crate::components::emoji_of_text;
+    use serde_json::json;
+
+    use super::{EventFormTarget, NewEventButton, event_post_buttons, event_post_content, has_link_button};
+    use crate::{components::emoji_of_text, config::test_links, open_evnt::COORDINATES_TYPE};
+
+    #[test]
+    fn the_location_links_to_a_map_search_for_its_coordinates_or_else_its_text() {
+        let by_text = json!({ "venue": { "address": "Vilniaus g. 22, Kaunas [2nd floor]" } });
+        assert!(event_post_content(&by_text, None, &[], None, 0, 2000).contains(
+            "📍 **Location:** [Vilniaus g. 22, Kaunas 2nd floor](<https://www.google.com/maps/search/?api=1&query=Vilniaus+g.+22%2C+Kaunas+%5B2nd+floor%5D>)"
+        ));
+        let coordinates = json!({ "$type": COORDINATES_TYPE, "latitude": 54.8972, "longitude": 23.8861 });
+        let by_coordinates = json!({ "venue": { "name": { "und": "Bar" }, "components": [coordinates] } });
+        assert!(event_post_content(&by_coordinates, None, &[], None, 0, 2000).contains(
+            "📍 **Location:** [Bar](<https://www.google.com/maps/search/?api=1&query=54.8972%2C23.8861>)"
+        ));
+    }
+
+    #[test]
+    fn a_post_has_the_link_button_of_its_own_link_id_only() {
+        let links = test_links();
+        let buttons = [event_post_buttons(&links, Id::new(10), "new")];
+        assert!(has_link_button(&buttons, &links.event_view_url("new")));
+        assert!(!has_link_button(&buttons, &links.event_view_url("old")));
+    }
 
     #[test]
     fn emoji_of_text_reads_custom_and_standard_emoji() {

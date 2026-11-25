@@ -1,6 +1,6 @@
 use serde_json::{Value, json};
 
-use crate::open_evnt::{self, Issue, PathSegment};
+use crate::open_evnt::{self, COORDINATES_TYPE, Issue, PathSegment};
 
 pub const DESCRIPTION_TYPE: &str = "directory.evnt.text.markdown#0";
 const SHOWN_LANGUAGES: [&str; 4] = ["mul", "und", "en", "lt"];
@@ -49,6 +49,14 @@ pub fn event_place_of(document: &Value) -> Option<String> {
         Some(Value::String(address)) => Some(address.clone()),
         _ => text_of(venue.get("name")),
     }
+}
+
+pub fn event_coordinates_of(document: &Value) -> Option<(f64, f64)> {
+    let components = document.get("venue")?.get("components")?.as_array()?;
+    let coordinates = components
+        .iter()
+        .find(|component| component.get("$type").and_then(Value::as_str) == Some(COORDINATES_TYPE))?;
+    Some((coordinates.get("latitude")?.as_f64()?, coordinates.get("longitude")?.as_f64()?))
 }
 
 pub fn event_name_of(document: &Value) -> String {

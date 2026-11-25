@@ -10,6 +10,7 @@ use anyhow::Context as _;
 use rusqlite::{Connection, Row, types::Type};
 
 pub use event_requests::{RequestEditor, RequestMatch};
+use crate::grants::random_link_id;
 
 const RENAMED_TABLES: [(&str, &str); 3] = [
     ("meets", "events"),
@@ -22,7 +23,8 @@ const SCHEMA: &str = "
         `forum_id` text PRIMARY KEY NOT NULL,
         `guild_id` text NOT NULL,
         `announce_role_id` text,
-        `review_channel_id` text
+        `review_channel_id` text,
+        `link_id` text NOT NULL
     );
     CREATE TABLE IF NOT EXISTS `events` (
         `thread_id` text PRIMARY KEY NOT NULL,
@@ -32,7 +34,8 @@ const SCHEMA: &str = "
         `attend_reaction` text NOT NULL,
         `organizers` text NOT NULL,
         `document` text NOT NULL,
-        `updated_at` integer NOT NULL
+        `updated_at` integer NOT NULL,
+        `link_id` text NOT NULL
     );
     CREATE TABLE IF NOT EXISTS `event_attendees` (
         `thread_id` text NOT NULL,
@@ -64,6 +67,11 @@ const SCHEMA: &str = "
     );
 ";
 
+const LINK_ID_INDEXES: &str = "
+    CREATE UNIQUE INDEX IF NOT EXISTS `event_forums_link_id_unique` ON `event_forums` (`link_id`);
+    CREATE UNIQUE INDEX IF NOT EXISTS `events_link_id_unique` ON `events` (`link_id`);
+";
+
 pub struct Database {
     connection: Mutex<Connection>,
 }
@@ -82,14 +90,11 @@ impl Database {
     pub fn of_connection(connection: Connection) -> anyhow::Result<Self> {
         rename_tables_to_event_names(&connection)?;
         connection.execute_batch(SCHEMA)?;
-        let has_review_channel: bool = connection.query_row(
-            "SELECT count(*) > 0 FROM pragma_table_info('event_forums') WHERE name = 'review_channel_id'",
-            [],
-            |row| row.get(0),
-        )?;
-        if !has_review_channel {
+        if !has_column(&connection, "event_forums", "review_channel_id")? {
             connection.execute_batch("ALTER TABLE `event_forums` ADD `review_channel_id` text")?;
         }
+        add_link_ids_to_forums_and_events(&connection)?;
+        connection.execute_batch(LINK_ID_INDEXES)?;
         Ok(Self {
             connection: Mutex::new(connection),
         })
@@ -121,6 +126,44 @@ fn table_exists(connection: &Connection, name: &str) -> rusqlite::Result<bool> {
         [name],
         |row| row.get(0),
     )
+}
+
+fn has_column(connection: &Connection, table: &str, column: &str) -> rusqlite::Result<bool> {
+    connection.query_row(
+        "SELECT count(*) > 0 FROM pragma_table_info(?1) WHERE name = ?2",
+        [table, column],
+        |row| row.get(0),
+    )
+}
+
+fn add_link_ids(connection: &Connection, table: &str, key: &str) -> rusqlite::Result<Vec<(String, String)>> {
+    if has_column(connection, table, "link_id")? {
+        return Ok(vec![]);
+    }
+    connection.execute_batch(&format!("ALTER TABLE `{table}` ADD `link_id` text"))?;
+    let keys: Vec<String> = connection
+        .prepare(&format!("SELECT `{key}` FROM `{table}`"))?
+        .query_map([], |row| row.get(0))?
+        .collect::<rusqlite::Result<_>>()?;
+    keys.into_iter()
+        .map(|key_value| {
+            let link_id = random_link_id();
+            connection.execute(&format!("UPDATE `{table}` SET `link_id` = ?1 WHERE `{key}` = ?2"), [&link_id, &key_value])?;
+            Ok((key_value, link_id))
+        })
+        .collect()
+}
+
+fn add_link_ids_to_forums_and_events(connection: &Connection) -> rusqlite::Result<()> {
+    let transaction = connection.unchecked_transaction()?;
+    add_link_ids(&transaction, "event_forums", "forum_id")?;
+    for (thread_id, link_id) in add_link_ids(&transaction, "events", "thread_id")? {
+        let (old, new) = (format!("/events/{thread_id}.evnt.json"), format!("/events/{link_id}.evnt.json"));
+        for table in ["events", "event_requests"] {
+            transaction.execute(&format!("UPDATE `{table}` SET `document` = replace(`document`, ?1, ?2)"), [&old, &new])?;
+        }
+    }
+    transaction.commit()
 }
 
 fn conversion_failure(index: usize, error: impl std::error::Error + Send + Sync + 'static) -> rusqlite::Error {

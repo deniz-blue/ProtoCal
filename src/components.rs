@@ -1,9 +1,11 @@
 use twilight_model::channel::message::{
     Component, EmojiReactionType, MessageFlags,
-    component::{ActionRow, Button, ButtonStyle, Container, TextDisplay},
+    component::{ActionRow, Button, ButtonStyle, Container, Section, TextDisplay, Thumbnail, UnfurledMediaItem},
 };
 
+// Discord limits for a Components V2 message: 40 components, 4000 characters across its text displays.
 pub const COMPONENTS_MAX: usize = 40;
+pub const TEXT_DISPLAYS_MAX: usize = 4000;
 
 pub fn emoji_of_text(text: &str) -> EmojiReactionType {
     let text = text.trim();
@@ -51,8 +53,26 @@ pub const fn row(components: Vec<Component>) -> Component {
     })
 }
 
+// twilight refuses to create a message with a text display over 4000 bytes.
+pub const TEXT_DISPLAY_BYTES_MAX: usize = 4000;
+
 pub fn text_display(content: impl Into<String>) -> Component {
-    Component::TextDisplay(TextDisplay { id: None, content: content.into() })
+    let content = content.into();
+    let content = if content.len() <= TEXT_DISPLAY_BYTES_MAX {
+        content
+    } else {
+        format!("{}…", &content[..content.floor_char_boundary(TEXT_DISPLAY_BYTES_MAX - '…'.len_utf8())])
+    };
+    Component::TextDisplay(TextDisplay { id: None, content })
+}
+
+pub fn section_with_thumbnail(text: impl Into<String>, thumbnail_url: impl Into<String>) -> Component {
+    let media = UnfurledMediaItem { url: thumbnail_url.into(), proxy_url: None, height: None, width: None, content_type: None };
+    Component::Section(Section {
+        id: None,
+        components: vec![text_display(text)],
+        accessory: Box::new(Component::Thumbnail(Thumbnail { id: None, media, description: None, spoiler: None })),
+    })
 }
 
 pub const fn container(components: Vec<Component>) -> Component {
@@ -86,10 +106,20 @@ pub fn text_displays(components: &[Component]) -> Vec<&str> {
         .iter()
         .flat_map(|component| match component {
             Component::Container(container) => text_displays(&container.components),
+            Component::Section(section) => text_displays(&section.components),
             Component::TextDisplay(text) => vec![text.content.as_str()],
             _ => vec![],
         })
         .collect()
+}
+
+pub fn thumbnail_url_of(components: &[Component]) -> Option<&str> {
+    components.iter().find_map(|component| match component {
+        Component::Container(container) => thumbnail_url_of(&container.components),
+        Component::Section(section) => thumbnail_url_of(std::slice::from_ref(&*section.accessory)),
+        Component::Thumbnail(thumbnail) => Some(thumbnail.media.url.as_str()),
+        _ => None,
+    })
 }
 
 #[cfg(test)]

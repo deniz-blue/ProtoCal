@@ -5,6 +5,7 @@ edition = "2024"
 publish = false
 
 [dependencies]
+ab_glyph = { version = "0.2", default-features = false, features = ["std"] }
 anyhow = "1"
 axum = "0.8"
 base64 = "0.22"
@@ -14,6 +15,7 @@ hyper = { version = "1", features = ["client", "http1"] }
 hyper-rustls = { version = "0.27", default-features = false, features = ["http1", "tls12"] }
 hyper-util = { version = "0.1", features = ["client-legacy", "http1", "tokio"] }
 jiff = { version = "0.2", features = ["tzdb-bundle-always"] }
+png = "0.18"
 rand = "0.9"
 regex = "1"
 rusqlite = { version = "0.41", features = ["bundled"] }

@@ -4,19 +4,12 @@ use std::{
 };
 
 use serde_json::{Value, json};
-use twilight_model::{
-    channel::message::AllowedMentions,
-    id::{Id, marker::ChannelMarker},
-};
+use twilight_model::{channel::message::AllowedMentions, id::{Id, marker::ChannelMarker}};
 
-use super::Bot;
+use super::{Bot, event_post::edit_event_post};
 use crate::{
     discord::cache::CachedChannel,
-    event::{
-        attend_reaction::role_name_of_event,
-        change_notice::event_change_notice,
-        post::{MESSAGE_MAX, event_post_buttons, event_post_content, thread_name_of},
-    },
+    event::{attend_reaction::role_name_of_event, change_notice::event_change_notice, post::thread_name_of},
     records::EventPost,
     time::now_unix_seconds,
 };
@@ -81,17 +74,11 @@ pub async fn save_event_document(bot: &Bot, thread: &CachedChannel, event: &Even
     let updated_at = now_unix_seconds();
     bot.db.describe_event(thread.id, &document, updated_at)?;
     let starter = bot.message(thread.id, thread.id.cast()).await;
-    if starter.is_some_and(|starter| starter.author.id == bot.user_id) {
-        let part_of = bot.part_of(&document).await;
-        let content = event_post_content(&document, part_of.as_ref(), &event.organizers, updated_at, MESSAGE_MAX);
-        let viewable = bot.everyone_can_view_forum(thread.guild_id, event.forum_id).await;
-        let buttons = [event_post_buttons(&bot.links, thread.id, viewable)];
-        bot.http
-            .update_message(thread.id, thread.id.cast())
-            .content(Some(&content))
-            .components(Some(&buttons))
-            .allowed_mentions(Some(&AllowedMentions::default()))
-            .await?;
+    if let Some(starter) = starter.filter(|starter| starter.author.id == bot.user_id) {
+        let message = bot
+            .event_post_message(thread.guild_id, &document, &event.organizers, Some(&event.attend_reaction), updated_at)
+            .await;
+        edit_event_post(bot, thread.id, &event.link_id, &message, &starter).await?;
     }
     let name = thread_name_of(&document);
     if thread.name != name {
