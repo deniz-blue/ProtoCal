@@ -24,7 +24,8 @@ const SCHEMA: &str = "
         `guild_id` text NOT NULL,
         `announce_role_id` text,
         `review_channel_id` text,
-        `link_id` text NOT NULL
+        `link_id` text NOT NULL,
+        `announce_channel_id` text
     );
     CREATE TABLE IF NOT EXISTS `events` (
         `thread_id` text PRIMARY KEY NOT NULL,
@@ -92,6 +93,9 @@ impl Database {
         connection.execute_batch(SCHEMA)?;
         if !has_column(&connection, "event_forums", "review_channel_id")? {
             connection.execute_batch("ALTER TABLE `event_forums` ADD `review_channel_id` text")?;
+        }
+        if !has_column(&connection, "event_forums", "announce_channel_id")? {
+            connection.execute_batch("ALTER TABLE `event_forums` ADD `announce_channel_id` text")?;
         }
         add_link_ids_to_forums_and_events(&connection)?;
         connection.execute_batch(LINK_ID_INDEXES)?;

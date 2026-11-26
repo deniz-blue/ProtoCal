@@ -25,6 +25,7 @@ pub struct ForumConfig {
     pub name: Option<String>,
     pub is_event_forum: bool,
     pub announce_role_id: Option<String>,
+    pub announce_channel_id: Option<String>,
     pub review_channel_id: Option<String>,
     pub has_default_reaction: bool,
     pub everyone_can_view: bool,
@@ -36,6 +37,7 @@ pub struct ForumConfig {
 pub struct GuildConfigChange {
     pub event_forum_ids: HashSet<String>,
     pub announce_role_id_of: HashMap<String, String>,
+    pub announce_channel_id_of: HashMap<String, String>,
     pub review_channel_id_of: HashMap<String, String>,
 }
 
@@ -51,12 +53,12 @@ impl Bot {
         may_configure_guild(Some(guild_permissions(&guild, &member))).then_some(guild)
     }
 
-    pub fn review_channels_of(&self, guild_id: Id<GuildMarker>) -> Vec<CachedChannel> {
-        self.cache.channels_of_guild(guild_id, ChannelType::GuildText)
+    pub fn text_channels_of(&self, guild_id: Id<GuildMarker>) -> Vec<CachedChannel> {
+        self.cache.channels_of_guild(guild_id, &[ChannelType::GuildText, ChannelType::GuildAnnouncement])
     }
 
     pub fn forum_configs_of(&self, guild_id: Id<GuildMarker>) -> anyhow::Result<Vec<ForumConfig>> {
-        let forums = self.cache.channels_of_guild(guild_id, ChannelType::GuildForum);
+        let forums = self.cache.channels_of_guild(guild_id, &[ChannelType::GuildForum]);
         let saved: HashMap<_, EventForum> = self
             .db
             .event_forums_of_guild(guild_id)?
@@ -71,6 +73,7 @@ impl Bot {
                 name: Some(forum.name.clone()),
                 is_event_forum: settings.is_some(),
                 announce_role_id: settings.and_then(|settings| settings.announce_role_id).map(|id| id.to_string()),
+                announce_channel_id: settings.and_then(|settings| settings.announce_channel_id).map(|id| id.to_string()),
                 review_channel_id: settings.and_then(|settings| settings.review_channel_id).map(|id| id.to_string()),
                 has_default_reaction: forum.default_reaction.is_some(),
                 everyone_can_view: everyone.contains(Permissions::VIEW_CHANNEL),
@@ -88,6 +91,7 @@ impl Bot {
             name: None,
             is_event_forum: true,
             announce_role_id: settings.announce_role_id.map(|id| id.to_string()),
+            announce_channel_id: settings.announce_channel_id.map(|id| id.to_string()),
             review_channel_id: settings.review_channel_id.map(|id| id.to_string()),
             has_default_reaction: false,
             everyone_can_view: false,
@@ -117,8 +121,8 @@ impl Bot {
 
     pub fn save_guild_config(&self, guild: &CachedGuild, change: &GuildConfigChange) -> anyhow::Result<()> {
         let role_ids: HashSet<String> = self.announceable_roles_of(guild)?.iter().map(|role| role.id.to_string()).collect();
-        let review_channel_ids: HashSet<String> =
-            self.review_channels_of(guild.id).iter().map(|channel| channel.id.to_string()).collect();
+        let text_channel_ids: HashSet<String> =
+            self.text_channels_of(guild.id).iter().map(|channel| channel.id.to_string()).collect();
         for forum in self.forum_configs_of(guild.id)? {
             let key = forum.forum_id.to_string();
             if !change.event_forum_ids.contains(&key) {
@@ -136,7 +140,8 @@ impl Bot {
                 forum_id: forum.forum_id,
                 guild_id: guild.id,
                 announce_role_id: chosen(&change.announce_role_id_of, &key, &role_ids).and_then(|id| id.parse().ok()),
-                review_channel_id: chosen(&change.review_channel_id_of, &key, &review_channel_ids).and_then(|id| id.parse().ok()),
+                announce_channel_id: chosen(&change.announce_channel_id_of, &key, &text_channel_ids).and_then(|id| id.parse().ok()),
+                review_channel_id: chosen(&change.review_channel_id_of, &key, &text_channel_ids).and_then(|id| id.parse().ok()),
                 link_id: forum.link_id.unwrap_or_else(random_link_id),
             })?;
         }

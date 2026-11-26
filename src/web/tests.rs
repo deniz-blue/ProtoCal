@@ -46,6 +46,7 @@ pub fn seeded_bot() -> Arc<Bot> {
             forum_id: Id::new(forum_id),
             guild_id: Id::new(GUILD),
             announce_role_id: None,
+            announce_channel_id: None,
             review_channel_id: None,
             link_id: format!("forum-{forum_id}"),
         })
@@ -191,9 +192,12 @@ async fn config_link_without_a_grant_is_refused() {
 
 #[test]
 fn config_form_keeps_only_single_values_per_forum() {
-    let change = guild_config_change_of_form(b"event=20&event=21&announce%3A20=51&review%3A20=&review%3A20=30&other=1");
+    let change = guild_config_change_of_form(
+        b"event=20&event=21&announce%3A20=51&announce-channel%3A20=31&review%3A20=&review%3A20=30&other=1",
+    );
     assert_eq!(change.event_forum_ids, ["20".to_owned(), "21".to_owned()].into());
     assert_eq!(change.announce_role_id_of, [("20".to_owned(), "51".to_owned())].into());
+    assert_eq!(change.announce_channel_id_of, [("20".to_owned(), "31".to_owned())].into());
     assert!(change.review_channel_id_of.is_empty());
 }
 

@@ -8,11 +8,11 @@ It is written in Rust with [twilight](https://github.com/twilight-rs/twilight), 
 
 1. Invite the bot with the Add to a server button on its homepage. The link asks for the `bot` and `applications.commands` scopes and these permissions: Manage Roles (it creates the event roles and hands them out), Pin Messages (it pins messages), and Manage Threads (it renames posts when an event's name is edited). It also needs to view channels, send messages in forums and posts, read message history and add reactions.
 2. Set a default reaction on each forum that should hold events. The bot uses it as the attend reaction. A post in a forum without one is not made an event.
-3. Run `/config` as someone with Manage Server. The link opens the settings page, where you pick the event forums and, for each one, an announce role and a review channel.
+3. Run `/config` as someone with Manage Server. The link opens the settings page, where you pick the event forums and, for each one, an announce role, where to announce, and a review channel. A role that is not mentionable is only pinged if the bot has Mention @everyone, @here and All Roles where it announces.
 
 ## What it does
 
-When a post is made in an event forum, the bot creates a role named `Event: <post name>`. It pins the first message. It gives the role to the post's author and to anyone who reacted before (the first 100 reactions). If the forum has an announce role, it then posts a message that is only a ping of that role.
+When a post is made in an event forum, the bot creates a role named `Event: <post name>`. It pins the first message. It gives the role to the post's author and to anyone who reacted before (the first 100 reactions). If the forum has an announce role, it then posts a message that is only a ping of that role, in the post, or in the forum's announce channel with a link to the post. A role mention inside a post only reaches a limited number of the role's members (Discord marks the message `FAILED_TO_MENTION_SOME_ROLES_IN_THREAD`), so a big role needs the channel.
 
 Reacting to the first message with the default reaction gives the role. Removing the reaction takes it away.
 
@@ -62,7 +62,7 @@ The HTTP server serves these paths:
 - `/`: the homepage, with the invite link.
 - `/events/<link id>.evnt.json`: one event. The link id is random, so only people given the link can open it: it is behind the post's View button.
 - `/forums/<link id>.json`: the events of an event forum, as an index, also behind a random link id. The settings page shows the link.
-- `/calendars/<token>.json` and `/calendars/<token>/events/<thread id>.evnt.json`: the `/mycalendar` index and the events in it.
+- `/calendars/<token>.json`: the `/mycalendar` index. Its events point at their `/events/<link id>.evnt.json`, the same link as everywhere else.
 - `/config/<token>`, `/edit/<token>` and `/edit/return`: the pages behind the links the bot sends.
 - `/fonts/lexend.woff2`: the font the pages use.
 

@@ -27,12 +27,12 @@ pub async fn show_config_page(
     };
     let forums = bot.forum_configs_of(guild.id)?;
     let roles = bot.announceable_roles_of(&guild)?;
-    let review_channels = bot.review_channels_of(guild.id);
+    let text_channels = bot.text_channels_of(guild.id);
     let options = ConfigPageOptions {
         guild_name: &guild.name,
         forums: &forums,
         roles: &roles,
-        review_channels: &review_channels,
+        text_channels: &text_channels,
         saved: query.contains_key("saved"),
     };
     Ok(html_answer(config_page(&bot.links, &options)))

@@ -9,6 +9,7 @@ pub struct EventForum {
     pub forum_id: Id<ChannelMarker>,
     pub guild_id: Id<GuildMarker>,
     pub announce_role_id: Option<Id<RoleMarker>>,
+    pub announce_channel_id: Option<Id<ChannelMarker>>,
     pub review_channel_id: Option<Id<ChannelMarker>>,
     pub link_id: String,
 }

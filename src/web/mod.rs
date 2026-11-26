@@ -38,7 +38,6 @@ fn routes(bot: Arc<Bot>) -> Router {
         .route("/events/{file}", get(open_evnt_routes::event_document))
         .route("/forums/{file}", get(open_evnt_routes::forum_index))
         .route("/calendars/{file}", get(open_evnt_routes::calendar_index))
-        .route("/calendars/{token}/events/{file}", get(open_evnt_routes::calendar_document))
         .route("/edit/return", get(edit_routes::show_edit_return_page).post(edit_routes::save_edit_return))
         .route("/edit/{token}", get(edit_routes::open_editor))
         .route("/config/{token}", get(config_routes::show_config_page).post(config_routes::save_config))

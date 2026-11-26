@@ -77,10 +77,6 @@ impl Links {
         format!("{}/calendars/{token}.json", self.public_url)
     }
 
-    pub fn calendar_document_url(&self, token: &str, thread_id: impl std::fmt::Display) -> String {
-        format!("{}/calendars/{token}/events/{thread_id}.evnt.json", self.public_url)
-    }
-
     pub fn config_page_url(&self, token: &str) -> String {
         format!("{}/config/{token}", self.public_url)
     }

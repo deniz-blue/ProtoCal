@@ -119,6 +119,7 @@ fn rows_from_before_the_event_rename_are_found_under_the_new_names() {
             forum_id: Id::new(2),
             guild_id: Id::new(1),
             announce_role_id: Some(Id::new(9)),
+            announce_channel_id: None,
             review_channel_id: Some(Id::new(8)),
             link_id: forum_found.link_id.clone(),
         }
@@ -185,8 +186,12 @@ fn a_database_from_before_screening_gets_the_review_channel_column() {
     let forum = db.event_forum_of(Id::new(2)).unwrap().unwrap();
     assert_eq!(forum.announce_role_id, Some(Id::new(9)));
     assert_eq!(forum.review_channel_id, None);
-    db.save_event_forum(&EventForum { review_channel_id: Some(Id::new(8)), ..forum }).unwrap();
-    assert!(db.event_forums_of_guild(Id::new(1)).unwrap()[0].is_screened());
+    assert_eq!(forum.announce_channel_id, None);
+    db.save_event_forum(&EventForum { review_channel_id: Some(Id::new(8)), announce_channel_id: Some(Id::new(7)), ..forum })
+        .unwrap();
+    let saved = &db.event_forums_of_guild(Id::new(1)).unwrap()[0];
+    assert!(saved.is_screened());
+    assert_eq!(saved.announce_channel_id, Some(Id::new(7)));
     assert!(db.forget_event_forum(Id::new(2)).unwrap());
     assert!(!db.forget_event_forum(Id::new(2)).unwrap());
 }

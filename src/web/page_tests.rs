@@ -20,6 +20,7 @@ fn forum_config(forum_id: u64, name: Option<&str>) -> ForumConfig {
         name: name.map(str::to_owned),
         is_event_forum: true,
         announce_role_id: None,
+        announce_channel_id: None,
         review_channel_id: None,
         has_default_reaction: true,
         everyone_can_view: true,
@@ -41,6 +42,7 @@ fn config_page_matches_its_reference() {
     let forums = [
         ForumConfig {
             announce_role_id: Some("51".to_owned()),
+            announce_channel_id: Some("30".to_owned()),
             review_channel_id: Some("31".to_owned()),
             everyone_can_post: true,
             ..forum_config(20, Some("meets"))
@@ -61,12 +63,12 @@ fn config_page_matches_its_reference() {
         },
     ];
     let roles = [role(51, "Pings & <news>"), role(52, "Member")];
-    let review_channels = [text_channel(30, "review"), text_channel(31, "mod's \"desk\"")];
+    let text_channels = [text_channel(30, "review"), text_channel(31, "mod's \"desk\"")];
     let options = ConfigPageOptions {
         guild_name: "haj & <house>",
         forums: &forums,
         roles: &roles,
-        review_channels: &review_channels,
+        text_channels: &text_channels,
         saved: false,
     };
     assert_eq!(config_page(&test_links(), &options), include_str!("reference/config_page_forums.html"));
@@ -74,7 +76,7 @@ fn config_page_matches_its_reference() {
 
 #[test]
 fn empty_config_page_matches_its_reference() {
-    let options = ConfigPageOptions { guild_name: "empty", forums: &[], roles: &[], review_channels: &[], saved: true };
+    let options = ConfigPageOptions { guild_name: "empty", forums: &[], roles: &[], text_channels: &[], saved: true };
     assert_eq!(config_page(&test_links(), &options), include_str!("reference/config_page_empty.html"));
 }
 
@@ -86,14 +88,14 @@ fn edit_return_page_matches_its_reference() {
 #[test]
 fn saved_config_page_shows_the_save_button_as_saved() {
     let forums = [forum_config(20, Some("meets"))];
-    let options = ConfigPageOptions { guild_name: "g", forums: &forums, roles: &[], review_channels: &[], saved: true };
+    let options = ConfigPageOptions { guild_name: "g", forums: &forums, roles: &[], text_channels: &[], saved: true };
     assert!(config_page(&test_links(), &options).contains("<form method=\"post\" class=\"saved\">"));
 }
 
 #[test]
 fn config_page_without_roles_has_no_announce_role_picker() {
     let forums = [forum_config(20, Some("meets"))];
-    let options = ConfigPageOptions { guild_name: "g", forums: &forums, roles: &[], review_channels: &[], saved: false };
+    let options = ConfigPageOptions { guild_name: "g", forums: &forums, roles: &[], text_channels: &[], saved: false };
     assert!(!config_page(&test_links(), &options).contains("Announce role"));
 }
 

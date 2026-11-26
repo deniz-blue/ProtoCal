@@ -1,5 +1,5 @@
 use super::{
-    config_form::{ANNOUNCE_FIELD_PREFIX, EVENT_FIELD, REVIEW_FIELD_PREFIX},
+    config_form::{ANNOUNCE_CHANNEL_FIELD_PREFIX, ANNOUNCE_FIELD_PREFIX, EVENT_FIELD, REVIEW_FIELD_PREFIX},
     page::{escaped, page},
 };
 use crate::{
@@ -12,7 +12,7 @@ pub struct ConfigPageOptions<'a> {
     pub guild_name: &'a str,
     pub forums: &'a [ForumConfig],
     pub roles: &'a [CachedRole],
-    pub review_channels: &'a [CachedChannel],
+    pub text_channels: &'a [CachedChannel],
     pub saved: bool,
 }
 
@@ -52,10 +52,10 @@ fn option(value: &str, text: &str, selected: bool) -> String {
     format!("<option value=\"{}\"{}>{}</option>", escaped(value), shown_if(selected, " selected"), escaped(text))
 }
 
-fn select_row(label: &str, field: &str, aria_label: &str, options: &str) -> String {
+fn select_row(label: &str, field: &str, aria_label: &str, unset_text: &str, options: &str) -> String {
     format!(
         "\n\t\t\t<div class=\"row\">\n\t\t\t\t<span>{label}</span>\n\t\t\t\t<select name=\"{}\" aria-label=\"{}\">\
-         <option value=\"\">None</option>{options}</select>\n\t\t\t</div>",
+         <option value=\"\">{unset_text}</option>{options}</select>\n\t\t\t</div>",
         escaped(field),
         escaped(aria_label)
     )
@@ -74,20 +74,32 @@ fn announce_row(forum: &ForumConfig, roles: &[CachedRole], label_name: &str) -> 
         })
         .collect();
     let field = format!("{ANNOUNCE_FIELD_PREFIX}{}", forum.forum_id);
-    select_row("Announce role", &field, &format!("Announce role for {label_name}"), &options)
+    select_row("Announce role", &field, &format!("Announce role for {label_name}"), "None", &options)
 }
 
-fn review_row(forum: &ForumConfig, channels: &[CachedChannel], label_name: &str) -> String {
-    let options: String = channels
+fn channel_options(channels: &[CachedChannel], selected_id: Option<&str>) -> String {
+    channels
         .iter()
         .map(|channel| {
             let channel_id = channel.id.to_string();
-            let selected = forum.review_channel_id.as_deref() == Some(channel_id.as_str());
-            option(&channel_id, &format!("#{}", channel.name), selected)
+            option(&channel_id, &format!("#{}", channel.name), selected_id == Some(channel_id.as_str()))
         })
-        .collect();
+        .collect()
+}
+
+fn announce_channel_row(forum: &ForumConfig, roles: &[CachedRole], channels: &[CachedChannel], label_name: &str) -> String {
+    if roles.is_empty() {
+        return String::new();
+    }
+    let options = channel_options(channels, forum.announce_channel_id.as_deref());
+    let field = format!("{ANNOUNCE_CHANNEL_FIELD_PREFIX}{}", forum.forum_id);
+    select_row("Announce in", &field, &format!("Announce channel for {label_name}"), "The post", &options)
+}
+
+fn review_row(forum: &ForumConfig, channels: &[CachedChannel], label_name: &str) -> String {
+    let options = channel_options(channels, forum.review_channel_id.as_deref());
     let field = format!("{REVIEW_FIELD_PREFIX}{}", forum.forum_id);
-    select_row("Review channel", &field, &format!("Review channel for {label_name}"), &options)
+    select_row("Review channel", &field, &format!("Review channel for {label_name}"), "None", &options)
 }
 
 fn index_row(links: &Links, forum: &ForumConfig) -> String {
@@ -105,7 +117,8 @@ fn forum_block(links: &Links, forum: &ForumConfig, options: &ConfigPageOptions) 
     let details = [
         warning_row(forum.name.is_some() && !forum.has_default_reaction, "no default reaction"),
         announce_row(forum, options.roles, label_name),
-        review_row(forum, options.review_channels, label_name),
+        announce_channel_row(forum, options.roles, options.text_channels, label_name),
+        review_row(forum, options.text_channels, label_name),
         warning_row(forum.everyone_can_post, "@everyone has Create Posts"),
         index_row(links, forum),
     ]

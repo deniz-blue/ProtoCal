@@ -120,11 +120,13 @@ pub async fn start_event(bot: &Bot, thread: &CachedChannel, posted: Option<Event
 
     if let Some(announce_role_id) = forum.announce_role_id {
         let mentions = AllowedMentions { roles: vec![announce_role_id], ..Default::default() };
-        bot.http
-            .create_message(thread.id)
-            .content(&format!("<@&{announce_role_id}>"))
-            .allowed_mentions(Some(&mentions))
-            .await?;
+        let (channel_id, content) = match forum.announce_channel_id {
+            Some(channel_id) => (channel_id, format!("<@&{announce_role_id}> <#{}>", thread.id)),
+            None => (thread.id, format!("<@&{announce_role_id}>")),
+        };
+        if let Err(error) = bot.http.create_message(channel_id).content(&content).allowed_mentions(Some(&mentions)).await {
+            tracing::warn!(thread = %thread.id, channel = %channel_id, %error, "Could not announce the event");
+        }
     }
     Ok(EventStart::Started)
 }

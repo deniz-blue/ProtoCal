@@ -43,7 +43,7 @@ pub fn home_page(application_id: Id<ApplicationMarker>) -> String {
 		<p class="row"><span>/event new<span class="note">A form asks for name, date, place and description.</span></span></p>
 		<p class="row"><span>/event register<span class="note">Run inside the post, by its poster or staff. Only staff in a forum with review.</span></span></p>
 		<p class="row"><span>/event send-new-button<span class="note">Staff only. Posts a New event button in the channel. Text, emoji and color can be set.</span></span></p>
-		<p class="row"><span>/config<span class="note">Manage Server only. Sets event forums, announce role and review channel.</span></span></p>
+		<p class="row"><span>/config<span class="note">Manage Server only. Sets event forums, announce role and channel, and review channel.</span></span></p>
 		<p class="row"><span>/mycalendar<span class="note">Private. Opens in <a href="https://eventsl.ink/">eventsl.ink{icon}</a>.</span></span></p>
 	</div>
 	<h2>In a server</h2>
@@ -52,7 +52,7 @@ pub fn home_page(application_id: Id<ApplicationMarker>) -> String {
 		<p class="row"><span>Event role<span class="note">Mentionable. Called Event: followed by the name. Deleted when the event ends.</span></span></p>
 		<p class="row"><span>Attend reaction<span class="note">The forum's default reaction on the first message gives the role. Taking the reaction back takes it away.</span></span></p>
 		<p class="row"><span>Pins<span class="note">The starter is pinned. Messages that ping the event role get pinned too.</span></span></p>
-		<p class="row"><span>Announce<span class="note">A forum can ping one role when an event is posted.</span></span></p>
+		<p class="row"><span>Announce<span class="note">A forum can ping one role when an event is posted, in the post or in a channel with a link to it.</span></span></p>
 		<p class="row"><span>Changes<span class="note">A new status, time or place pings the role, and an old time or place is struck out. Other edits post a quiet note.</span></span></p>
 		<p class="row"><span>Review<span class="note">A forum can send events to a review channel first. Moderators approve, reply or deny. The host can withdraw.</span></span></p>
 		<p class="row"><span>Edits<span class="note">The organiser or staff change it with the Edit button on the post, in Discord or in the web editor.</span></span></p>

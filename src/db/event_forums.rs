@@ -7,7 +7,7 @@ use twilight_model::id::{
 use super::{Database, parsed, parsed_optional};
 use crate::records::EventForum;
 
-const COLUMNS: &str = "forum_id, guild_id, announce_role_id, review_channel_id, link_id";
+const COLUMNS: &str = "forum_id, guild_id, announce_role_id, review_channel_id, link_id, announce_channel_id";
 
 fn event_forum_of_row(row: &Row) -> rusqlite::Result<EventForum> {
     Ok(EventForum {
@@ -16,6 +16,7 @@ fn event_forum_of_row(row: &Row) -> rusqlite::Result<EventForum> {
         announce_role_id: parsed_optional(row, 2)?,
         review_channel_id: parsed_optional(row, 3)?,
         link_id: row.get(4)?,
+        announce_channel_id: parsed_optional(row, 5)?,
     })
 }
 
@@ -54,9 +55,10 @@ impl Database {
         self.with(|db| {
             db.execute(
                 &format!(
-                    "INSERT INTO event_forums ({COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5)
+                    "INSERT INTO event_forums ({COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6)
                      ON CONFLICT (forum_id) DO UPDATE SET guild_id = excluded.guild_id,
-                     announce_role_id = excluded.announce_role_id, review_channel_id = excluded.review_channel_id"
+                     announce_role_id = excluded.announce_role_id, review_channel_id = excluded.review_channel_id,
+                     announce_channel_id = excluded.announce_channel_id"
                 ),
                 params![
                     forum.forum_id.to_string(),
@@ -64,6 +66,7 @@ impl Database {
                     forum.announce_role_id.map(|id| id.to_string()),
                     forum.review_channel_id.map(|id| id.to_string()),
                     forum.link_id,
+                    forum.announce_channel_id.map(|id| id.to_string()),
                 ],
             )
             .map(drop)

@@ -167,12 +167,12 @@ impl GuildCache {
         self.get_known().guilds.get(&guild_id)?.roles.get(&role_id).cloned()
     }
 
-    pub fn channels_of_guild(&self, guild_id: Id<GuildMarker>, kind: ChannelType) -> Vec<CachedChannel> {
+    pub fn channels_of_guild(&self, guild_id: Id<GuildMarker>, kinds: &[ChannelType]) -> Vec<CachedChannel> {
         let mut channels: Vec<CachedChannel> = self
             .get_known()
             .channels
             .values()
-            .filter(|channel| channel.guild_id == guild_id && channel.kind == kind)
+            .filter(|channel| channel.guild_id == guild_id && kinds.contains(&channel.kind))
             .cloned()
             .collect();
         channels.sort_by_key(|channel| (channel.position, channel.id));
